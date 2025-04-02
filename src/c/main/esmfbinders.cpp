@@ -3,7 +3,6 @@
  */ 
 
 #include "./issm.h"
-#include <ESMC.h>
 
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
@@ -16,34 +15,31 @@ extern "C" {
 	FemModel *femmodel;
 
 	/*GEOS 5*/
-	void InitializeISSM(int argc, char** argv, int** pelementsonlocalrank, int* pnumberofelements, ISSM_MPI_Comm comm_init){ /*{{{*/
-
+      void InitializeISSM(int argc, char** argv, int* pnumberofelements, int* pnumberofnodes, MPI_Fint* Fcomm){ /*{{{*/
 		int numberofelements;
-		int* elementsonlocalrank=NULL;
+        int numberofnodes;
+          
+        /* convert Fortran MPI comm to C MPI comm */
+        MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);             
+                
+        /*Initialize femmodel from arguments provided command line: */
+		femmodel = new FemModel(argc,argv,Ccomm);
 
-		/*Initialize femmodel from arguments provided command line: */
-		femmodel = new FemModel(argc,argv,comm_init);
-
-		/*Figure out the partition for elements, and return: */
+		/*Get number of nodes and elements from the mesh: */
 		numberofelements=femmodel->elements->NumberOfElements();
+        numberofnodes=femmodel->vertices->Size();
 
-		elementsonlocalrank=xNewZeroInit<int>(numberofelements); 
-		for(Object* & object : femmodel->elements->objects){
-			Element* element=dynamic_cast<Element*>(object);
-			elementsonlocalrank[element->Sid()]=1;
-		}
+		/*Bypass SMB model, will be provided by GCM! */
+		femmodel->parameters->SetParam(SMBgcmEnum,SmbEnum); 
 
-		/*Some specific code here for the binding: */
-		femmodel->parameters->SetParam(SMBgcmEnum,SmbEnum); //bypass SMB model, will be provided by GCM!
-
-		/*Restart file: */
+        /*Restart file: */
 		femmodel->Restart();
 
 		/*Assign output pointers: */
 		*pnumberofelements=numberofelements;
-		*pelementsonlocalrank=elementsonlocalrank;
-
+        *pnumberofnodes=numberofnodes;
 	} /*}}}*/
+
 	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
 
 		int numberofelements;
@@ -140,6 +136,7 @@ extern "C" {
 		/*For the next time around, save the final time as start time */
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
 	} /*}}}*/
+
 	void FinalizeISSM(){ /*{{{*/
 
 		/*Output results: */
@@ -152,70 +149,30 @@ extern "C" {
 		delete femmodel; femmodel=NULL;
 	} /*}}}*/
 
-	/*TODO: we need 2 initialize routines, the second one will be empty for now
-	 * In: ESMF config, ESMF Field bundle
-	 */
+    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
+        /*obtain nodes of mesh for creating ESMF version in Fortran interface*/
+        /*nodeIds are the global Id's of the nodes and nodeCoords are the    */
+        /*(x,y) coordinates, as described in the ESMF reference document     */
+        int sdim = 2; // spatial dimension (2D map-plane)
+        for (int i=0;i<femmodel->vertices->Size();i++){
+            Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
+            *(nodeIds+i)     = vertex->Sid()+1;
+            *(nodeCoords+sdim*i+0) = vertex->x;
+            *(nodeCoords+sdim*i+1) = vertex->y;
+        }
+    }
 
-	/*FISOC*/
-	void InitializeISSM_FISOC(int argc, char** argv,ISSM_MPI_Comm comm_init){ /*{{{*/
-
-      /*Intermediary*/
-		int rc;
-      int rank = IssmComm::GetRank();
-
-		/*Initialize femmodel from arguments provided command line: */
-		femmodel = new FemModel(argc,argv,comm_init);
-
-		/*Initialize ESMC Mesh*/
-		int pdim;        /*parametric dimension is the same as the domain dimensions */
-		int sdim = 2;    /*coordinates of each vertex is always 2  (just x,y for now) */
-		ESMC_CoordSys_Flag coordsys = ESMC_COORDSYS_CART; /*Cartesian coordinate system by default */
-		femmodel->parameters->FindParam(&pdim,DomainDimensionEnum);
-		ESMC_Mesh mesh = ESMC_MeshCreate(pdim,sdim,&coordsys,&rc);
-		if(rc!=ESMF_SUCCESS) _error_("could not create EMSC_Mesh");
-
-		/*
-		 * What do we do with vertices at the boundary, declare twice?
-		 * */
-
-		/*Add nodes (which are ISSM Vertices)*/
-		int numnodes = femmodel->vertices->Size();
-		int        *nodeId    = xNew<int>(numnodes);
-		int        *nodeOwner = xNew<int>(numnodes);
-		IssmDouble *nodeCoord = xNew<IssmDouble>(sdim*numnodes);
-		for (int i=0;i<femmodel->vertices->Size();i++){
-			Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
-			nodeId[i]           = vertex->Sid()+1;
-         nodeOwner[i]        = rank;
-			nodeCoord[sdim*i+0] = vertex->x;
-			nodeCoord[sdim*i+1] = vertex->y;
-		}
-		rc = ESMC_MeshAddNodes(mesh,numnodes,nodeId,nodeCoord,nodeOwner);
-		if(rc!=ESMF_SUCCESS) _error_("could not add nodes to EMSC_Mesh");
-		xDelete<int>(nodeId);
-		xDelete<int>(nodeOwner);
-		xDelete<IssmDouble>(nodeCoord);
-
-		/*Add Elements (Assume triangles only for now)*/
-		int numelements = femmodel->elements->Size();
-		int* elemId   = xNew<int>(numelements);
-		int* elemType = xNew<int>(numelements);
-		int* elemConn = xNew<int>(numelements*3); /*Assuming triangles*/
-		for(int i=0;i<femmodel->elements->Size();i++){
-			Element* element=xDynamicCast<Element*>(femmodel->elements->GetObjectByOffset(i));
-			elemId[i]   = element->Sid()+1;
-			elemType[i] = ESMC_MESHELEMTYPE_TRI; /*Assuming triangles*/
-         elemConn[i*3+0] = element->vertices[0]->Lid()+1;
-         elemConn[i*3+1] = element->vertices[1]->Lid()+1;
-         elemConn[i*3+2] = element->vertices[2]->Lid()+1;
-		}
-		rc = ESMC_MeshAddElements(mesh,numelements,elemId,elemType,elemConn,NULL,NULL,NULL);
-		xDelete<int>(elemId);
-		xDelete<int>(elemType);
-		xDelete<int>(elemConn);
-
-		/*Create restart file for later */
-		femmodel->Restart();
-	} /*}}}*/
+    void GetElementsISSM(int* elementIds, int* elementConn){
+        /*obtain elements of mesh for creating ESMF version in Fortran interface*/
+        /*Element connectivity (elementConn) contains the indices of the nodes  */
+        /*that form the element as described in the ESMF reference document     */ 
+        for(int i=0;i<femmodel->elements->Size();i++){
+            Element* element=xDynamicCast<Element*>(femmodel->elements->GetObjectByOffset(i));
+            *(elementIds + i)    = element->Sid()+1;
+            *(elementConn + i*3+0) = element->vertices[0]->Lid()+1;
+            *(elementConn + i*3+1) = element->vertices[1]->Lid()+1;
+            *(elementConn + i*3+2) = element->vertices[2]->Lid()+1;
+        }
+    }
 
 }
