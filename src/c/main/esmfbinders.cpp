@@ -26,8 +26,11 @@ extern "C" {
 		femmodel = new FemModel(argc,argv,Ccomm);
 
 		/*Get number of nodes and elements from the mesh: */
-		numberofelements=femmodel->elements->NumberOfElements();
-        numberofnodes=femmodel->vertices->Size();
+		// global number of elements:
+                //numberofelements=femmodel->elements->NumberOfElements();
+                // local number of elements:
+                numberofelements=femmodel->elements->Size();
+                numberofnodes=femmodel->vertices->Size();
 
 		/*Bypass SMB model, will be provided by GCM! */
 		femmodel->parameters->SetParam(SMBgcmEnum,SmbEnum); 
