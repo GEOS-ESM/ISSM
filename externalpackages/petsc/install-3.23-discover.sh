@@ -34,6 +34,10 @@ cd ${PETSC_DIR}
 	--with-x=0 \
 	--with-ssl=0 \
 	--with-pic=1 \
+        --with-cc=mpicc \
+        --with-cxx=mpicxx \
+        --with-fc=mpif90 \
+        --with-blaslapack-dir=$MKLROOT \
 	--download-metis=1 \
 	--download-parmetis=1 \
 	--download-scalapack=1 \
