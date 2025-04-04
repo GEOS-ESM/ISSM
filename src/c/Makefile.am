@@ -188,6 +188,7 @@ issm_sources += \
 	./shared/Random/random.cpp \
 	./shared/Random/randomgenerator.cpp \
 	./shared/String/DescriptorIndex.cpp \
+    ./shared/String/ApiPrintf.cpp \
 	./toolkits/issm/IssmToolkitUtils.cpp \
 	./toolkits/issm/IssmSolver.cpp \
 	./toolkits/mpi/issmmpi.cpp \
