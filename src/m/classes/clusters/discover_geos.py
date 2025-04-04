@@ -121,17 +121,17 @@ class discover_geos(object):
 
     def LaunchQueueJob(self, modelname, dirname, filelist, restart, batch):  # {{{
         print('launching solution sequence on discover...')
+        launchcommand = 'chmod 755 {}.run'.format(modelname)
+        subprocess.call(launchcommand,shell=True)
         if self.runmodel==1:
             # run the model of runmodel=1
             # else, these calls will just write the binary input file
-            launchcommand = 'chmod 755 {}.run && ./{}.run 2>> {}.errlog'.format(modelname,modelname,modelname)
+            launchcommand = './{}.run 2>> {}.errlog'.format(modelname,modelname)
             subprocess.call(launchcommand,shell=True)
-            subprocess.run(["mv","error.log","./{}/error.log".format(dirname)])
             subprocess.run(["mv","{}.outbin".format(modelname), "./{}/{}.outbin".format(dirname,modelname)])
-        # move files to run directory
-        subprocess.run(["mv","{}.errlog".format(modelname),"./{}/{}.errlog".format(dirname,modelname)])
-        subprocess.run(["mv","{}.outlog".format(modelname), "./{}/{}.outlog".format(dirname,modelname)])
-        #subprocess.run(["mv","{}.run".format(modelname), "./{}/{}.run".format(dirname,modelname)])
+            # move files to run directory
+            subprocess.run(["mv","{}.errlog".format(modelname),"./{}/{}.errlog".format(dirname,modelname)])
+            subprocess.run(["mv","{}.outlog".format(modelname), "./{}/{}.outlog".format(dirname,modelname)])
         return
 
     def Download(self, dirname, filelist):  # {{{
