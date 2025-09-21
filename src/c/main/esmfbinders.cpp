@@ -144,7 +144,7 @@ extern "C" {
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
 		
 		/*Finalize exception trapping: */
-		ExceptionTrapEnd();
+		//ExceptionTrapEnd();
 	} /*}}}*/
 
 	void FinalizeISSM(){ /*{{{*/
