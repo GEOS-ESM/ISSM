@@ -83,7 +83,7 @@ extern "C" {
 						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
 
 						/*Convert to SI. The smbforcing from GEOS-5 in kg/s, and we transform it into m/s: */
-						smbforcing = 0.0 // smbforcing/(rho_ice*area);
+						smbforcing = 0.0; // smbforcing/(rho_ice*area);
 
 						/*Add into the element as new forcing :*/
 						element->AddInput(SmbMassBalanceEnum,&smbforcing,P0Enum);
