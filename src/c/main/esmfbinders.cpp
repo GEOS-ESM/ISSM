@@ -27,10 +27,11 @@ extern "C" {
 
 		/*Get number of nodes and elements from the mesh: */
 		// global number of elements:
-                //numberofelements=femmodel->elements->NumberOfElements();
-                // local number of elements:
-                numberofelements=femmodel->elements->Size();
-                numberofnodes=femmodel->vertices->Size();
+		//numberofelements=femmodel->elements->NumberOfElements();
+		
+		// local number of elements:
+		numberofelements=femmodel->elements->Size();
+		numberofnodes=femmodel->vertices->Size();
 
 		/*Bypass SMB model, will be provided by GCM! */
 		femmodel->parameters->SetParam(SMBgcmEnum,SmbEnum); 
@@ -44,12 +45,15 @@ extern "C" {
 	} /*}}}*/
 
 	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
+		/*Initialize exception trapping: */
+		ExceptionTrapBegin();
 
 		int numberofelements;
 		IssmDouble yts;
 		IssmDouble rho_ice;
 		IssmDouble area;
 		IssmDouble start_time,final_time;
+		
 
 		/*Figure out number of elements: */
 		numberofelements=femmodel->elements->Size();
@@ -79,7 +83,7 @@ extern "C" {
 						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
 
 						/*Convert to SI. The smbforcing from GEOS-5 in kg/s, and we transform it into m/s: */
-						smbforcing=smbforcing/(rho_ice*area);
+						smbforcing = 0.0 // smbforcing/(rho_ice*area);
 
 						/*Add into the element as new forcing :*/
 						element->AddInput(SmbMassBalanceEnum,&smbforcing,P0Enum);
@@ -138,6 +142,9 @@ extern "C" {
 
 		/*For the next time around, save the final time as start time */
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
+		
+		/*Finalize exception trapping: */
+		ExceptionTrapEnd();
 	} /*}}}*/
 
 	void FinalizeISSM(){ /*{{{*/
