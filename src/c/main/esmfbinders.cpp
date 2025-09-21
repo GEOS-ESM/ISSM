@@ -46,7 +46,7 @@ extern "C" {
 
 	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
 		/*Initialize exception trapping: */
-		ExceptionTrapBegin();
+		//ExceptionTrapBegin();
 
 		int numberofelements;
 		IssmDouble yts;
