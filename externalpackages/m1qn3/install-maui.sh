@@ -6,7 +6,7 @@ rm -rf install src m1qn3-3.3-distrib
 mkdir install
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/m1qn3-3.3-distrib.tgz' 'm1qn3-3.3-distrib.tgz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/m1qn3-3.3-distrib.tgz' 'm1qn3-3.3-distrib.tgz'
 
 #Untar 
 tar -xzf m1qn3-3.3-distrib.tgz

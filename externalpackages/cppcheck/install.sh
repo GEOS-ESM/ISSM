@@ -6,7 +6,7 @@ rm -rf install  src cppcheck-1.48
 mkdir src
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/cppcheck-1.48.tar' 'cppcheck-1.48.tar'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/cppcheck-1.48.tar' 'cppcheck-1.48.tar'
 tar -xvf cppcheck-1.48.tar
 
 mv cppcheck-1.48/* src

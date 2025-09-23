@@ -10,7 +10,7 @@ rm -rf install CoDiPack-$VER.tar.gz
 git clone https://github.com/SciCompKL/CoDiPack.git install
 
 ## Download source
-#$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://issm.ess.uci.edu/files/externalpackages/CoDiPack-${VER}.tar.gz" "CoDiPack-${VER}.tar.gz"
+#$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/CoDiPack-${VER}.tar.gz" "CoDiPack-${VER}.tar.gz"
 #
 ## Untar
 #tar -zxvf CoDiPack-$VER.tar.gz

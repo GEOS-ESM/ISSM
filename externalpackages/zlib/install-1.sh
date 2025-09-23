@@ -13,7 +13,7 @@ rm -rf ${PREFIX} src
 mkdir -p ${PREFIX} src
 
 # Download source
-$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://issm.ess.uci.edu/files/externalpackages/zlib-${VER}.tar.gz" "zlib-${VER}.tar.gz"
+$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/zlib-${VER}.tar.gz" "zlib-${VER}.tar.gz"
 
 # Unpack source
 tar -zxvf zlib-${VER}.tar.gz

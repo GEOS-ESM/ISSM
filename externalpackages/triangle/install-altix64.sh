@@ -6,7 +6,7 @@ rm -rf install triangle
 mkdir install
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/triangle.zip' 'triangle.zip'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/triangle.zip' 'triangle.zip'
 
 #Untar 
 cd install

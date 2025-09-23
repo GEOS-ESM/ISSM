@@ -6,7 +6,7 @@ rm -rf install valgrind-3.10.0
 mkdir install
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/valgrind-3.10.0.tar.bz2' 'valgrind-3.10.0.tar.bz2'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/valgrind-3.10.0.tar.bz2' 'valgrind-3.10.0.tar.bz2'
 
 #Untar 
 tar -jxvf  valgrind-3.10.0.tar.bz2

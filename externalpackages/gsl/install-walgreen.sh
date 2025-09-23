@@ -6,7 +6,7 @@ rm -rf src install gsl-1.15
 mkdir src install
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/gsl-1.15.tar.gz' 'gsl-1.15.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/gsl-1.15.tar.gz' 'gsl-1.15.tar.gz'
 
 #Untar 
 tar -zxvf  gsl-1.15.tar.gz
