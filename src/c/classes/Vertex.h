@@ -28,7 +28,7 @@ class Vertex: public Object{
 		IssmDouble x;
 		IssmDouble y;
 		IssmDouble z;
-		IssmDouble latitute;
+		IssmDouble latitude;
 		IssmDouble longitude;
 		IssmDouble R;
 		IssmDouble sigma;        //sigma coordinate: (z-bed)/thickness

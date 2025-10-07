@@ -43,7 +43,7 @@ Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel
 		this->y            = iomodel->Data("md.mesh.y")[vertex_sid];
 		this->z            = iomodel->Data("md.mesh.z")[vertex_sid];
 		if(iomodel->Data("md.mesh.lat") && iomodel->Data("md.mesh.long")){
-			this->latitute     = iomodel->Data("md.mesh.lat")[vertex_sid];
+			this->latitude     = iomodel->Data("md.mesh.lat")[vertex_sid];
 			this->longitude    = iomodel->Data("md.mesh.long")[vertex_sid];
 		}
 
@@ -54,7 +54,7 @@ Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel
 				break;
 			case Domain3DsurfaceEnum:
 				_assert_(iomodel->Data("md.mesh.lat") && iomodel->Data("md.mesh.long") && iomodel->Data("md.mesh.r"));
-				this->latitute     = iomodel->Data("md.mesh.lat")[vertex_sid];
+				this->latitude     = iomodel->Data("md.mesh.lat")[vertex_sid];
 				this->longitude    = iomodel->Data("md.mesh.long")[vertex_sid];
 				this->R            = iomodel->Data("md.mesh.r")[vertex_sid];
 				break;
@@ -71,7 +71,7 @@ Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel
 		this->x         = 0.;
 		this->y         = 0.;
 		this->z         = 0.;
-		this->latitute  = 0.;
+		this->latitude  = 0.;
 		this->longitude = 0.;
 		this->R         = 0.;
 		this->sigma     = 0.;
@@ -127,6 +127,8 @@ void Vertex::Marshall(MarshallHandle* marshallhandle){ /*{{{*/
 	marshallhandle->call(this->x);
 	marshallhandle->call(this->y);
 	marshallhandle->call(this->z);
+	marshallhandle->call(this->longitude);
+	marshallhandle->call(this->latitude);
 	marshallhandle->call(this->sigma);
 	marshallhandle->call(this->connectivity);
 
@@ -140,7 +142,7 @@ int Vertex::ObjectEnum(void){/*{{{*/
 int        Vertex::Connectivity(void){return connectivity;}/*{{{*/
 /*}}}*/
 IssmDouble Vertex::GetLatitude(){/*{{{*/
-	return this->latitute;
+	return this->latitude;
 }
 /*}}}*/
 IssmDouble Vertex::GetLongitude(){/*{{{*/
@@ -215,7 +217,7 @@ void       Vertex::VertexCoordinates(Vector<IssmDouble>* vx,Vector<IssmDouble>* 
 		vz->SetValue(this->sid,this->z,INS_VAL);
 	}
 	else{
-		vx->SetValue(this->sid,this->latitute,INS_VAL);
+		vx->SetValue(this->sid,this->latitude,INS_VAL);
 		vy->SetValue(this->sid,this->longitude,INS_VAL);
 		vz->SetValue(this->sid,this->R,INS_VAL);
 	}

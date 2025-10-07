@@ -168,7 +168,7 @@ extern "C" {
             Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
             *(nodeIds+i)     = vertex->Sid()+1;
             *(nodeCoords+sdim*i+0) = vertex->longitude;
-            *(nodeCoords+sdim*i+1) = vertex->latitute;
+            *(nodeCoords+sdim*i+1) = vertex->latitude;
         }
     }
 
