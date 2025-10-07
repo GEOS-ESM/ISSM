@@ -10,9 +10,9 @@ rm -rf install
 mkdir src install 
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/scotch_5.1.6.tar.gz' 'scotch_5.1.6.tar.gz'
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/docs/ptscotch_user5.1.pdf' 'ptscotch_user5.1.pdf'
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/docs/scotch_user5.1.pdf' 'scotch_user5.1.pdf'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/scotch_5.1.6.tar.gz' 'scotch_5.1.6.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/docs/ptscotch_user5.1.pdf' 'ptscotch_user5.1.pdf'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/docs/scotch_user5.1.pdf' 'scotch_user5.1.pdf'
 
 # Untar 
 tar -xvzf scotch_5.1.6.tar.gz

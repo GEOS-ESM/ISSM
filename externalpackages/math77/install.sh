@@ -6,7 +6,7 @@ rm -rf src install math77
 mkdir src install
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/math77.tar.gz' 'math77.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/math77.tar.gz' 'math77.tar.gz'
 
 #Untar 
 tar -zxvf  math77.tar.gz

@@ -10,7 +10,7 @@ rm -rf install ADOL-C-2.2.0 src trunk
 mkdir install src
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/ADOL-C-2.2.0.tar.gz' 'ADOL-C-2.2.0.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/ADOL-C-2.2.0.tar.gz' 'ADOL-C-2.2.0.tar.gz'
 
 #Untar 
 tar -zxvf  ADOL-C-2.2.0.tar.gz

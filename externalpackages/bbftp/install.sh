@@ -5,7 +5,7 @@ set -eu
 rm -rf src install bbftp-client-3.2.0
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/bbftp-client-3.2.0.tar.gz' 'bbftp-client-3.2.0.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/bbftp-client-3.2.0.tar.gz' 'bbftp-client-3.2.0.tar.gz'
 
 #Create install directories
 mkdir install src

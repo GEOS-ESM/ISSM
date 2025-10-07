@@ -10,7 +10,7 @@ PKG="scotch"
 VER="6.0.9"
 
 # Download source
-$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://issm.ess.uci.edu/files/externalpackages/${PKG}_${VER}.tar.gz" "${PKG}_${VER}.tar.gz"
+$ISSM_DIR/scripts/DownloadExternalPackage.sh "https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/${PKG}_${VER}.tar.gz" "${PKG}_${VER}.tar.gz"
 
 # Unpack source
 tar -zxvf ${PKG}_${VER}.tar.gz

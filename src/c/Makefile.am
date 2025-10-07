@@ -190,6 +190,7 @@ issm_sources += \
 	./shared/Random/random.cpp \
 	./shared/Random/randomgenerator.cpp \
 	./shared/String/DescriptorIndex.cpp \
+    ./shared/String/ApiPrintf.cpp \
 	./toolkits/issm/IssmToolkitUtils.cpp \
 	./toolkits/issm/IssmSolver.cpp \
 	./toolkits/mpi/issmmpi.cpp \
@@ -696,6 +697,10 @@ modules_sources += \
 	./modules/Krigingx/pKrigingx.cpp
 endif
 #}}}
+
+# figure out where to put this:
+issm_sources += ./main/esmfbinders.cpp
+
 # Library flags and sources {{{
 ALL_CXXFLAGS = $(CXXFLAGS)
 

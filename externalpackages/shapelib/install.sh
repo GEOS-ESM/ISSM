@@ -8,9 +8,9 @@ rm -rf install
 mkdir src install 
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/shapelib-1.2.10.tar.gz' 'shapelib-1.2.10.tar.gz'
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/shape_eg_data.zip'  'shape_eg_data.zip'
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/docs/shapefile.pdf' 'shapefile.pdf'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/shapelib-1.2.10.tar.gz' 'shapelib-1.2.10.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/shape_eg_data.zip'  'shape_eg_data.zip'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/docs/shapefile.pdf' 'shapefile.pdf'
 
 # Untar 
 tar -xvzf shapelib-1.2.10.tar.gz

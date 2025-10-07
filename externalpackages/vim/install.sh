@@ -7,7 +7,7 @@ rm -rf vim72
 mkdir install src
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/vim-7.2.tar.bz2' 'vim-7.2.tar.bz2'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/vim-7.2.tar.bz2' 'vim-7.2.tar.bz2'
 
 #Untar 
 bzip2 -d -k vim-7.2.tar.bz2

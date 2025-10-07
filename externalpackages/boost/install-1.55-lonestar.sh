@@ -12,7 +12,7 @@ rm -rf install boost_1_55_0 src
 mkdir install src
 
 #Download from ISSM server
-$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://issm.ess.uci.edu/files/externalpackages/boost_1_55_0.tar.gz' 'boost_1_55_0.tar.gz'
+$ISSM_DIR/scripts/DownloadExternalPackage.sh 'https://github.com/ISSMteam/ExternalPackages/raw/refs/heads/main/boost_1_55_0.tar.gz' 'boost_1_55_0.tar.gz'
 
 #Untar 
 tar -zxvf  boost_1_55_0.tar.gz
