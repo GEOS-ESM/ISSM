@@ -162,13 +162,13 @@ extern "C" {
     void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
         /*obtain nodes of mesh for creating ESMF version in Fortran interface*/
         /*nodeIds are the global Id's of the nodes and nodeCoords are the    */
-        /*(x,y) coordinates, as described in the ESMF reference document     */
+        /*(lon,lat) coordinates, as described in the ESMF reference document     */
         int sdim = 2; // spatial dimension (2D map-plane)
         for (int i=0;i<femmodel->vertices->Size();i++){
             Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
             *(nodeIds+i)     = vertex->Sid()+1;
-            *(nodeCoords+sdim*i+0) = vertex->x;
-            *(nodeCoords+sdim*i+1) = vertex->y;
+            *(nodeCoords+sdim*i+0) = vertex->longitude;
+            *(nodeCoords+sdim*i+1) = vertex->latitute;
         }
     }
 
