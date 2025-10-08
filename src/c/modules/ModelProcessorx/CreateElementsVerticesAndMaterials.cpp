@@ -455,7 +455,7 @@ void CreateVertices(Elements* elements,Vertices* vertices,IoModel* iomodel,int s
 		//iomodel->FetchData(6,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness","md.mask.ice_levelset");
 		iomodel->FetchData(5,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness");
 		if (iomodel->domaintype == Domain3DsurfaceEnum) iomodel->FetchData(3,"md.mesh.lat","md.mesh.long","md.mesh.r");
-		if (isoceancoupling) iomodel->FetchData(2,"md.mesh.lat","md.mesh.long");
+		iomodel->FetchData(2,"md.mesh.lat","md.mesh.long");
 
 		for(int i=0;i<iomodel->numberofvertices;i++){
 			if(vertices_offsets[i]!=-1){
@@ -468,7 +468,7 @@ void CreateVertices(Elements* elements,Vertices* vertices,IoModel* iomodel,int s
 		//iomodel->DeleteData(6,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness","md.mask.ice_levelset");
 		iomodel->DeleteData(5,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness");
 		if (iomodel->domaintype == Domain3DsurfaceEnum) iomodel->DeleteData(3,"md.mesh.lat","md.mesh.long","md.mesh.r");
-		if (isoceancoupling) iomodel->DeleteData(2,"md.mesh.lat","md.mesh.long");
+		iomodel->DeleteData(2,"md.mesh.lat","md.mesh.long");
 	}
 	else{
 		for(int i=0;i<iomodel->numberofvertices;i++){

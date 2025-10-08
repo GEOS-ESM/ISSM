@@ -42,10 +42,9 @@ Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel
 		this->x            = iomodel->Data("md.mesh.x")[vertex_sid];
 		this->y            = iomodel->Data("md.mesh.y")[vertex_sid];
 		this->z            = iomodel->Data("md.mesh.z")[vertex_sid];
-		if(iomodel->Data("md.mesh.lat") && iomodel->Data("md.mesh.long")){
-			this->latitude     = iomodel->Data("md.mesh.lat")[vertex_sid];
-			this->longitude    = iomodel->Data("md.mesh.long")[vertex_sid];
-		}
+	        _assert_(iomodel->Data("md.mesh.lat") && iomodel->Data("md.mesh.long"));
+		this->latitude     = iomodel->Data("md.mesh.lat")[vertex_sid];
+		this->longitude    = iomodel->Data("md.mesh.long")[vertex_sid];
 
 		switch(iomodel->domaintype){
 			case Domain3DEnum:
