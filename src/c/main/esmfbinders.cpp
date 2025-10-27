@@ -164,7 +164,7 @@ extern "C" {
             *(nodeIds+i)     = vertex->Sid()+1;
             *(nodeCoords+2*i+0) = vertex->longitude;
             *(nodeCoords+2*i+1) = vertex->latitude;
-			*(nodeOwners+i) = rank
+			*(nodeOwners+i) = rank;
         }
     }
 
