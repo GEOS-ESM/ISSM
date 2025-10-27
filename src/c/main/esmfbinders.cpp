@@ -45,9 +45,6 @@ extern "C" {
 	} /*}}}*/
 
 	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
-		/*Initialize exception trapping: */
-		//ExceptionTrapBegin();
-
 		int numberofelements;
 		IssmDouble yts;
 		IssmDouble rho_ice;
@@ -143,8 +140,6 @@ extern "C" {
 		/*For the next time around, save the final time as start time */
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
 		
-		/*Finalize exception trapping: */
-		//ExceptionTrapEnd();
 	} /*}}}*/
 
 	void FinalizeISSM(){ /*{{{*/
@@ -159,20 +154,21 @@ extern "C" {
 		delete femmodel; femmodel=NULL;
 	} /*}}}*/
 
-    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
-        /*obtain nodes of mesh for creating ESMF version in Fortran interface*/
-        /*nodeIds are the global Id's of the nodes and nodeCoords are the    */
-        /*(lon,lat) coordinates, as described in the ESMF reference document     */
-        int sdim = 2; // spatial dimension (2D map-plane)
+    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords,int* nodeOwners){ 
+        /*obtain nodes of mesh for creating ESMF version in Fortran interface */
+        /*nodeIds are the global Id's of the nodes and nodeCoords are the     */
+        /*(lon,lat) coordinates, as described in the ESMF reference document  */
+		int rank = IssmComm::GetRank();
         for (int i=0;i<femmodel->vertices->Size();i++){
             Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
             *(nodeIds+i)     = vertex->Sid()+1;
-            *(nodeCoords+sdim*i+0) = vertex->longitude;
-            *(nodeCoords+sdim*i+1) = vertex->latitude;
+            *(nodeCoords+2*i+0) = vertex->longitude;
+            *(nodeCoords+2*i+1) = vertex->latitude;
+			*(nodeOwners+i) = rank
         }
     }
 
-    void GetElementsISSM(int* elementIds, int* elementConn){
+    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords){
         /*obtain elements of mesh for creating ESMF version in Fortran interface*/
         /*Element connectivity (elementConn) contains the indices of the nodes  */
         /*that form the element as described in the ESMF reference document     */ 
@@ -182,6 +178,17 @@ extern "C" {
             *(elementConn + i*3+0) = element->vertices[0]->Lid()+1;
             *(elementConn + i*3+1) = element->vertices[1]->Lid()+1;
             *(elementConn + i*3+2) = element->vertices[2]->Lid()+1;
+
+			// Compute the triangle centroid in longitude/latitude
+			IssmDouble centroid_lon=0.0,centroid_lat=0.0;
+			for(int j=0;j<3;j++){
+			centroid_lon += element->vertices[j]->longitude / 3.0;
+			centroid_lat += element->vertices[j]->latitude / 3.0;
+			}
+		
+			*(elementCoords + 2*i + 0) = centroid_lon;
+			*(elementCoords + 2*i + 1) = centroid_lat;
+
         }
     }
 
