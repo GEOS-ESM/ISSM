@@ -92,7 +92,7 @@ md.stressbalance.reltol = 0.1
 
 md.private.solution = 'Stressbalance'
 md.settings.waitonlock = 0
-md.toolkits = toolkits()
+md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
 marshall(md) # create .bin file
 
 # export configuration for loading solution in next step

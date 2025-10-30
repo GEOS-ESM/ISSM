@@ -22,6 +22,6 @@ md.settings.waitonlock = 0
 md.private.solution = 'Transient'
 md.toolkits = toolkits()
 marshall(md) # create .bin file
-md.toolkits = toolkits()
+md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
 export_discover(md,'./Models/Greenland_initialization.nc',delete_rundir=True)
 

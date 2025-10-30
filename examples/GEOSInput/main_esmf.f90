@@ -67,6 +67,10 @@ program main
     real(dp),    pointer, dimension(:)     :: lats => null()
     integer, pointer :: filtered(:)
 
+    ! filepath
+    character(len=256) :: issm_path
+    integer :: length, status
+
     ! some new things for regridding
     type(ESMF_RouteHandle) :: routehandle ! routehandle for regridding
     type(ESMF_Field)       :: srcField    ! ice elevation on mesh
@@ -96,12 +100,23 @@ program main
 
     dt = 0.05   ! timestep in years
 
+    ! Get the environment variable ISSM_DIR
+    call get_environment_variable("ISSM_DIR", issm_path, length, status)
+
+    if (status == 0) then
+        print *, "ISSM_DIR =", trim(issm_path)
+    else if (status == 1) then
+        print *, "Environment variable ISSM_DIR not found."
+    else
+        print *, "Error reading environment variable ISSM_DIR."
+    end if
+
     ! Manually set argc and argv
     argc = 4  ! Example: 3 arguments
     allocate(argv(argc))
-    argv(1) = "this arg does not matter" 
+    argv(1) = "this arg does not matter"//c_null_char 
     argv(2) = "TransientSolution"//c_null_char
-    argv(3) = "/discover/nobackup/agstubbl/ISSM/projs/IRF-ISSM"//c_null_char
+    argv(3) = trim(issm_path)//"/examples/GEOSInput"//c_null_char
     argv(4) = "GreenlandGEOS"//c_null_char
 
     ! Convert Fortran strings to C pointers (argv)
