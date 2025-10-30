@@ -95,14 +95,6 @@ program main
     ! Get the environment variable ISSM_DIR
     call get_environment_variable("ISSM_DIR", issm_path, length, status)
 
-    if (status == 0) then
-        print *, "ISSM_DIR =", trim(issm_path)
-    else if (status == 1) then
-        print *, "Environment variable ISSM_DIR not found."
-    else
-        print *, "Error reading environment variable ISSM_DIR."
-    end if
-
     ! Manually set argc and argv
     argc = 4  ! Example: 3 arguments
     allocate(argv(argc))
