@@ -1,10 +1,11 @@
 #ISSM
+module purge
 source /discover/nobackup/agstubbl/GEOS/GEOSgcm/@env/g5_modules.sh
 export ESMFMKFILE=$BASEDIR/Linux/lib/esmf.mk
 module load python/GEOSpyD/Min23.5.2-0_py3.11
 module load nano
 export ISSM_ARCH="linux-gnu-amd64"
-module unload other/ISSM/2025-09-02/ifort_2021.13.0-intelmpi_2021.13.0
+module unload other/ISSM/2025-10-08/ifort_2021.13.0-intelmpi_2021.13.0
 export ISSM_DIR="/discover/nobackup/agstubbl/ISSM/GEOS-ISSM/ISSM"
 export PATH="$PATH:$ISSM_DIR/scripts:/usr/include:/usr/lib64:/usr/lib"
 export PYTHONPATH="$PYTHONPATH:$ISSM_DIR/src/m/dev"

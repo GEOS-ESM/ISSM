@@ -119,7 +119,7 @@ md.stressbalance.spcvx = np.nan * np.ones((md.mesh.numberofvertices))
 md.stressbalance.spcvy = np.nan * np.ones((md.mesh.numberofvertices))
 md.stressbalance.spcvz = np.nan * np.ones((md.mesh.numberofvertices))
 
-## Re-project mesh onto new coordinate system temporarily
+## Re-project mesh onto coordinate system
 [md.mesh.lat, md.mesh.long] = xy2ll(md.mesh.x, md.mesh.y, + 1, 39, 71)
 [xi, yi] = ll2xy(md.mesh.lat, md.mesh.long, + 1, 45, 70)
 md.mesh.x = xi

@@ -61,6 +61,8 @@ md = setmask(md, '', '')
 md = parameterize(md, './Greenland_parameterize.py')
 md = setflowequation(md, 'SSA', 'all')
 
+print(md.mesh)
+
 # export parameterization
 export_discover(md, "./Models/Greenland_parameterization.nc",delete_rundir=True)
 

@@ -7,6 +7,7 @@ program main
     use iso_fortran_env, only: dp=>real64
     use iso_c_binding, only: c_ptr, c_double, c_f_pointer,c_null_char, c_loc, c_int
     use ESMF
+    use netcdf
     implicit none
 
     ! Define the interface for the ISSM C++ functions
@@ -33,10 +34,11 @@ program main
        type(c_ptr),      value   :: nodeCoords
     end subroutine GetNodesISSM
 
-    subroutine GetElementsISSM(elementIds, elementConn) bind(C,NAME="GetElementsISSM")
+    subroutine GetElementsISSM(elementIds, elementConn, elementCoords) bind(C,NAME="GetElementsISSM")
        import :: c_ptr
        type(c_ptr),      value   :: elementIds
        type(c_ptr),      value   :: elementConn
+       type(c_ptr),      value   :: elementCoords
     end subroutine GetElementsISSM
 
     subroutine FinalizeISSM() bind(C,NAME="FinalizeISSM")
@@ -46,34 +48,58 @@ program main
     
     ! declare ISSM-related variables
     integer(c_int)                 :: num_elements
-    integer(c_int)                 :: num_nodes   
+    integer(c_int)                 :: num_nodes
+    integer                        :: num_owned_nodes   
     integer(c_int)                 :: argc
     character(len=200), dimension(:), allocatable, target :: argv
     type(c_ptr), dimension(:), allocatable :: argv_ptr
-    integer :: i
+    integer :: i,j
     real(dp) :: dt
     real(dp),    pointer, dimension(:)     :: SMBToISSM => null()
-    real(dp),    pointer, dimension(:)     :: SurfaceToGEOS => null()
+    real(dp),    pointer, dimension(:)     :: SurfaceOnElements => null()
     real(dp),    pointer, dimension(:)     :: nodeCoords => null()
     integer,     pointer, dimension(:)     :: nodeIds => null()
+    integer,     pointer, dimension(:)     :: nodeOwners => null()
+    real(dp),    pointer, dimension(:)     :: field_saver_elements => null()
+    real(dp),    pointer, dimension(:)     :: field_saver_nodes => null()
+    real(dp),    pointer, dimension(:)     :: SurfaceOnNodes => null()
+    real(dp),    pointer, dimension(:)     :: lons => null()
+    real(dp),    pointer, dimension(:)     :: lats => null()
+    integer, pointer :: filtered(:)
+
+    ! some new things for regridding
+    type(ESMF_RouteHandle) :: routehandle ! routehandle for regridding
+    type(ESMF_Field)       :: srcField    ! ice elevation on mesh
+    type(ESMF_Field)       :: dstField    ! ice elevation on grid
+  
+
+    ! netcdf output
+    integer :: ncid, dimid_nodes, dimid_elements, dimid_onodes
+    integer :: varid_nlon,varid_nlat,varid_ecn1,varid_ecn2,varid_ecn3,varid_nid
+    integer :: varid_eid,varid_elon,varid_elat,varid_esurf,varid_nsurf,varid_nowners
+    character(20) :: f !filename
 
     ! declare ESMF variables
     type(ESMF_VM)                  :: vm    
+    integer                        :: localPET
+    integer                        :: petCount
     integer                        :: rc
     type(ESMF_Mesh)                :: mesh
     integer(c_int)                 :: comm
     integer                        :: sdim
-    integer, pointer, dimension(:) :: elementIds
-    integer, pointer, dimension(:) :: elementConn    
+    integer, pointer, dimension(:) :: elementIds    => null()
+    integer, pointer, dimension(:) :: elementConn   => null()
+    real(dp),pointer, dimension(:) :: elementCoords => null()
     integer, allocatable  :: elementTypes(:)
     type(ESMF_Field) :: field
+
 
     dt = 0.05   ! timestep in years
 
     ! Manually set argc and argv
     argc = 4  ! Example: 3 arguments
     allocate(argv(argc))
-    argv(1) = "this arg does not matter" !"/discover/nobackup/projects/gmao/SIteam/ISSM/2025-09-02/ifort_2021.13.0-intelmpi_2021.13.0/ISSM/bin/issm.exe"//c_null_char
+    argv(1) = "this arg does not matter" 
     argv(2) = "TransientSolution"//c_null_char
     argv(3) = "/discover/nobackup/agstubbl/ISSM/projs/IRF-ISSM"//c_null_char
     argv(4) = "GreenlandGEOS"//c_null_char
@@ -89,109 +115,197 @@ program main
     ! initialize ESMF to and get vm info / comm for ISSM MPI
     call ESMF_Initialize(vm=vm, defaultlogfilename="VMDefaultBasicsEx.Log", logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
 
-    call ESMF_VMGet(vm,mpiCommunicator=comm,rc=rc)    
+    call ESMF_VMGet(vm,mpiCommunicator=comm,localPET=localPET,petCount=petCount,rc=rc)    
 
-    ! ! print the VM information if desired:
-    !call ESMF_VMPrint(vm, rc=rc)
-   
     ! Call the C++ function for initializing ISSM
     ! gets the number of elements and nodes of the mesh
     call ESMF_VMBarrier(vm, rc=rc)
     call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm)
     call ESMF_VMBarrier(vm, rc=rc)
 
-    print *, "number of elements: ", num_elements
-    print *, "number of nodes: ", num_nodes
+    !print *, "number of elements on PET ", localPET, ": ", num_elements
+    !print *, "number of nodes on PET ", localPET, ": ", num_nodes
 
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
     allocate(nodeIds(num_nodes))
+    allocate(nodeOwners(num_nodes))
     allocate(elementTypes(num_elements))
     allocate(elementIds(num_elements))
     allocate(elementConn(3*num_elements))
-
+    allocate(elementCoords(2*num_elements))
+    allocate(lons(num_nodes))
+    allocate(lats(num_nodes))
+    
     ! allocate SMB forcing (input to ISSM) and surface output (export from ISSM)
     allocate(SMBToISSM(num_elements))
-    allocate(SurfaceToGEOS(num_elements))
+    allocate(SurfaceOnElements(num_elements))
 
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
-    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn))
+    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords))
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
+    call ESMF_VMBarrier(vm, rc=rc) 
 
-    !do i=2,size(nodeCoords)
-    !if (modulo(i, 2) == 0) then
-    !    print '(A, F6.2, A, F7.2)', 'lat: ', nodeCoords(i), ', lon: ', nodeCoords(i-1)
-    !else
-    !    continue
-    !end if 
-    !end do
-
+    lons(:) = nodeCoords(1::2)
+    lats(:) = nodeCoords(2::2)
+    
     ! create the ESMF mesh (later will be used for regridding)
     mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, nodeIds=nodeIds, nodeCoords=nodeCoords, &
-           elementIds=elementIds, elementTypes=elementTypes, elementConn=elementConn, coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+           elementIds=elementIds, elementTypes=elementTypes, elementConn=elementConn,& 
+           elementCoords=elementCoords,coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+    if (rc /= ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Error creating mesh'
+        end if
+    else if(rc == ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, "Succesfully created mesh"
+        end if 
+    end if
+
+    call ESMF_VMBarrier(vm, rc=rc)
+
+    call ESMF_MeshGet(mesh,nodeOwners=nodeOwners)
+
+    num_owned_nodes = count(nodeOwners == localPet)
 
     ! set smb and surface for test 
     SMBToISSM(:) = 0
-    SurfaceToGEOS(:) = 0 ! placeholder    
-
+    SurfaceOnElements(:) = 0 ! placeholder
+    SurfaceOnNodes(:) = 0 ! placeholder    
+    
     call ESMF_VMBarrier(vm, rc=rc)
-    ! call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(SurfaceToGEOS))
-    call ESMF_VMBarrier(vm, rc=rc)    
+    !call the C++ routine for running a single time step
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(SurfaceOnElements))
+ 
+    call ESMF_VMBarrier(vm, rc=rc)  
+    srcField = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceOnElements,meshloc=ESMF_MESHLOC_ELEMENT, & 
+               datacopyflag=ESMF_DATACOPY_VALUE,rc=rc)
+    if (rc /= ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Error creating srcField'
+        end if 
+    else if (rc == ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Successfully created srcField'
+        end if 
+    end if
 
+
+    dstField = ESMF_FieldCreate(mesh=mesh,typekind=ESMF_TYPEKIND_R8,meshloc=ESMF_MESHLOC_NODE,rc=rc)
+    
+    call ESMF_FieldFill(dstField, dataFillScheme="const",const1=0.0_dp)
+    if (rc /= ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Error creating dstField'
+        end if 
+    else if (rc == ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Successfully created dstField'
+        end if 
+    end if
+
+    !call ESMF_VMBarrier(vm, rc=rc)
+    if (localPET == 0) then
+        print *, "Creating routehandle...."
+    end if 
+    
+    call ESMF_FieldRegridStore(srcField=srcField, dstField=dstField,routehandle=routehandle, unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,rc=rc)
+    
+    if (rc /= ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Error creating routehandle'
+        end if 
+    else
+        if (localPET == 0) then
+        print *, "Created routehandle...."
+        end if 
+    end if
+    
+    if (localPET == 0) then
+        print *, "trying to regrid...."
+    end if 
+    ! Perform Regrid operation moving data from srcField to dstField
+    call ESMF_FieldRegrid(srcField, dstField, routeHandle, rc=rc)
+    if (rc /= ESMF_SUCCESS) then
+        if (localPET == 0) then
+        print *, 'Error regridding'
+        end if 
+    else
+        if (localPET == 0) then
+        print *, "Successfully regridded"
+        end if 
+    end if   
+
+    call ESMF_FieldGet(dstField,farrayPtr=SurfaceOnNodes,rc=rc) 
+
+    if (localPET == 0) then
+    print *, "saving results to netcdf files..."
+    end if 
+
+    ! save a netcdf for each PET
+    do i = 0, petCount-1
+        call ESMF_VMBarrier(vm, rc=rc) 
+        if (i==localPET) then
+        write(f,'("data_rank",I0,".nc")') localPET
+            rc = nf90_create(f, NF90_CLOBBER, ncid)
+            rc = nf90_def_dim(ncid,"num_nodes",num_nodes,dimid_nodes)
+            rc = nf90_def_dim(ncid,"num_owned_nodes",num_owned_nodes,dimid_onodes)
+            rc = nf90_def_dim(ncid,"num_elements",num_elements,dimid_elements)
+            rc = nf90_def_var(ncid,"node_lon",NF90_REAL,(/dimid_nodes/),varid_nlon)
+            rc = nf90_def_var(ncid,"node_lat",NF90_REAL,(/dimid_nodes/),varid_nlat)
+            rc = nf90_def_var(ncid,"node_ids",NF90_REAL,(/dimid_nodes/),varid_nid)
+            rc = nf90_def_var(ncid,"node_owners",NF90_REAL,(/dimid_nodes/),varid_nowners)
+            rc = nf90_def_var(ncid,"element_lon",NF90_REAL,(/dimid_elements/),varid_elon)
+            rc = nf90_def_var(ncid,"element_lat",NF90_REAL,(/dimid_elements/),varid_elat)
+            rc = nf90_def_var(ncid,"element_ids",NF90_REAL,(/dimid_elements/),varid_eid)
+            rc = nf90_def_var(ncid,"element_conn1",NF90_REAL,(/dimid_elements/),varid_ecn1)
+            rc = nf90_def_var(ncid,"element_conn2",NF90_REAL,(/dimid_elements/),varid_ecn2)
+            rc = nf90_def_var(ncid,"element_conn3",NF90_REAL,(/dimid_elements/),varid_ecn3)
+            rc = nf90_def_var(ncid,"node_surf",NF90_REAL,(/dimid_onodes/),varid_nsurf)
+            rc = nf90_def_var(ncid,"element_surf",NF90_REAL,(/dimid_elements/),varid_esurf)
+            rc = nf90_enddef(ncid)
+            rc = nf90_put_var(ncid,varid_nlon,nodeCoords(1::2))
+            rc = nf90_put_var(ncid,varid_nlat,nodeCoords(2::2))
+            rc = nf90_put_var(ncid,varid_nid,nodeIds)
+            rc = nf90_put_var(ncid,varid_nowners,nodeOwners)
+            rc = nf90_put_var(ncid,varid_elon,elementCoords(1::2))
+            rc = nf90_put_var(ncid,varid_elat,elementCoords(2::2))
+            rc = nf90_put_var(ncid,varid_eid,elementIds(:))
+            rc = nf90_put_var(ncid,varid_ecn1,elementConn(1::3))
+            rc = nf90_put_var(ncid,varid_ecn2,elementConn(2::3))
+            rc = nf90_put_var(ncid,varid_ecn3,elementConn(3::3))
+            rc = nf90_put_var(ncid,varid_esurf,SurfaceOnElements(:))
+            rc = nf90_put_var(ncid,varid_nsurf,SurfaceOnNodes(:))
+            rc = nf90_close(ncid)
+        end if
+        call ESMF_VMBarrier(vm, rc=rc) 
+    end do
+    
+    call ESMF_VMBarrier(vm, rc=rc)    
+    call ESMF_FieldDestroy(srcField,rc=rc)
+    call ESMF_FieldDestroy(dstField,rc=rc)
+
+
+
+    ! deallocate pointers
+    deallocate(nodeCoords)
+    deallocate(nodeIds)
+    deallocate(nodeOwners)
+    deallocate(elementTypes)
+    deallocate(elementIds)
+    deallocate(elementConn)
+    deallocate(elementCoords)
+    deallocate(SMBToISSM)
+    deallocate(SurfaceOnElements)
+    
+    
     ! call ISSM finalize (saves binary output .outbin file)
     call FinalizeISSM()
-    call ESMF_VMBarrier(vm, rc=rc)     
-
-    ! ! save mesh properties
-    ! save mesh node ID's
-    field = ESMF_FieldCreate(mesh=mesh,farrayPtr=nodeIds,meshloc=ESMF_MESHLOC_NODE)    
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="nodeIds")
-    call ESMF_FieldDestroy(field,rc=rc)   
     
-    ! save mesh node x-coord
-    field = ESMF_FieldCreate(mesh=mesh,farray=nodeCoords(2*nodeIds-1),indexflag=ESMF_INDEX_DELOCAL,datacopyflag=ESMF_DATACOPY_VALUE,meshloc=ESMF_MESHLOC_NODE,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="nodeCoords_lon",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-
-    ! save mesh node y-coord
-    field = ESMF_FieldCreate(mesh=mesh,farray=nodeCoords(2*nodeIds),indexflag=ESMF_INDEX_DELOCAL,datacopyflag=ESMF_DATACOPY_VALUE,meshloc=ESMF_MESHLOC_NODE,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="nodeCoords_lat",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)   
-    
-    ! save element ID's
-    field = ESMF_FieldCreate(mesh=mesh,farray=elementIds,indexflag=ESMF_INDEX_DELOCAL,meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="elementIds",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-
-    ! save element connectivity (node 1)
-    field = ESMF_FieldCreate(mesh=mesh,farray=elementConn(3*elementIds-2),indexflag=ESMF_INDEX_DELOCAL,meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="elementConn_n1",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-
-    ! save element connectivity (node 2)
-    field = ESMF_FieldCreate(mesh=mesh,farray=elementConn(3*elementIds-1),indexflag=ESMF_INDEX_DELOCAL,meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="elementConn_n2",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-
-    ! save element connectivity (node 3)
-    field = ESMF_FieldCreate(mesh=mesh,farray=elementConn(3*elementIds),indexflag=ESMF_INDEX_DELOCAL,meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="elementConn_n3",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-    ! save ice-surface elevation
-    field = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceToGEOS,meshloc=ESMF_MESHLOC_ELEMENT,rc=rc)
-    call ESMF_FieldWrite(field,"mesh.nc",variableName="ice_elevation",rc=rc)
-    call ESMF_FieldDestroy(field,rc=rc)
-
-
     ! finalize ESMF
     call ESMF_Finalize(rc=rc)
 end program main
