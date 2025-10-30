@@ -53,50 +53,42 @@ program main
     integer(c_int)                 :: argc
     character(len=200), dimension(:), allocatable, target :: argv
     type(c_ptr), dimension(:), allocatable :: argv_ptr
-    integer :: i,j
+    integer :: i
     real(dp) :: dt
     real(dp),    pointer, dimension(:)     :: SMBToISSM => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnElements => null()
-    real(dp),    pointer, dimension(:)     :: nodeCoords => null()
-    integer,     pointer, dimension(:)     :: nodeIds => null()
-    integer,     pointer, dimension(:)     :: nodeOwners => null()
-    real(dp),    pointer, dimension(:)     :: field_saver_elements => null()
-    real(dp),    pointer, dimension(:)     :: field_saver_nodes => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnNodes => null()
-    real(dp),    pointer, dimension(:)     :: lons => null()
-    real(dp),    pointer, dimension(:)     :: lats => null()
-    integer, pointer :: filtered(:)
 
     ! filepath
     character(len=256) :: issm_path
     integer :: length, status
 
-    ! some new things for regridding
+    ! for regridding test
     type(ESMF_RouteHandle) :: routehandle ! routehandle for regridding
     type(ESMF_Field)       :: srcField    ! ice elevation on mesh
     type(ESMF_Field)       :: dstField    ! ice elevation on grid
-  
 
     ! netcdf output
     integer :: ncid, dimid_nodes, dimid_elements, dimid_onodes
     integer :: varid_nlon,varid_nlat,varid_ecn1,varid_ecn2,varid_ecn3,varid_nid
     integer :: varid_eid,varid_elon,varid_elat,varid_esurf,varid_nsurf,varid_nowners
-    character(20) :: f !filename
+    character(20) :: output_filename !filename
 
     ! declare ESMF variables
     type(ESMF_VM)                  :: vm    
+    integer(c_int)                 :: comm
     integer                        :: localPET
     integer                        :: petCount
     integer                        :: rc
     type(ESMF_Mesh)                :: mesh
-    integer(c_int)                 :: comm
     integer                        :: sdim
     integer, pointer, dimension(:) :: elementIds    => null()
     integer, pointer, dimension(:) :: elementConn   => null()
     real(dp),pointer, dimension(:) :: elementCoords => null()
+    real(dp),    pointer, dimension(:)     :: nodeCoords => null()
+    integer,     pointer, dimension(:)     :: nodeIds => null()
+    integer,     pointer, dimension(:)     :: nodeOwners => null()
     integer, allocatable  :: elementTypes(:)
-    type(ESMF_Field) :: field
-
 
     dt = 0.05   ! timestep in years
 
@@ -138,6 +130,7 @@ program main
     call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm)
     call ESMF_VMBarrier(vm, rc=rc)
 
+    ! ! print out some info if desired:
     !print *, "number of elements on PET ", localPET, ": ", num_elements
     !print *, "number of nodes on PET ", localPET, ": ", num_nodes
 
@@ -149,8 +142,6 @@ program main
     allocate(elementIds(num_elements))
     allocate(elementConn(3*num_elements))
     allocate(elementCoords(2*num_elements))
-    allocate(lons(num_nodes))
-    allocate(lats(num_nodes))
     
     ! allocate SMB forcing (input to ISSM) and surface output (export from ISSM)
     allocate(SMBToISSM(num_elements))
@@ -163,9 +154,6 @@ program main
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
-
-    lons(:) = nodeCoords(1::2)
-    lats(:) = nodeCoords(2::2)
     
     ! create the ESMF mesh (later will be used for regridding)
     mesh = ESMF_MeshCreate(parametricDim=2, spatialDim=2, nodeIds=nodeIds, nodeCoords=nodeCoords, &
@@ -209,7 +197,7 @@ program main
         end if 
     end if
 
-
+    ! create dstField (will be associated with SurfaceOnNodes)
     dstField = ESMF_FieldCreate(mesh=mesh,typekind=ESMF_TYPEKIND_R8,meshloc=ESMF_MESHLOC_NODE,rc=rc)
     
     call ESMF_FieldFill(dstField, dataFillScheme="const",const1=0.0_dp)
@@ -228,6 +216,7 @@ program main
         print *, "Creating routehandle...."
     end if 
     
+    ! create routehandle for regridding fields from elements to vertices
     call ESMF_FieldRegridStore(srcField=srcField, dstField=dstField,routehandle=routehandle, unmappedaction=ESMF_UNMAPPEDACTION_IGNORE,rc=rc)
     
     if (rc /= ESMF_SUCCESS) then
@@ -243,7 +232,8 @@ program main
     if (localPET == 0) then
         print *, "trying to regrid...."
     end if 
-    ! Perform Regrid operation moving data from srcField to dstField
+
+    ! Perform regridding from elements to vertices
     call ESMF_FieldRegrid(srcField, dstField, routeHandle, rc=rc)
     if (rc /= ESMF_SUCCESS) then
         if (localPET == 0) then
@@ -255,17 +245,18 @@ program main
         end if 
     end if   
 
+    ! associate regridded field with SurfaceOnNodes pointer
     call ESMF_FieldGet(dstField,farrayPtr=SurfaceOnNodes,rc=rc) 
 
     if (localPET == 0) then
     print *, "saving results to netcdf files..."
     end if 
 
-    ! save a netcdf for each PET
+    ! save a netcdf for each PET 
     do i = 0, petCount-1
         call ESMF_VMBarrier(vm, rc=rc) 
         if (i==localPET) then
-        write(f,'("data_rank",I0,".nc")') localPET
+        write(output_filename,'("data_rank",I0,".nc")') localPET
             rc = nf90_create(f, NF90_CLOBBER, ncid)
             rc = nf90_def_dim(ncid,"num_nodes",num_nodes,dimid_nodes)
             rc = nf90_def_dim(ncid,"num_owned_nodes",num_owned_nodes,dimid_onodes)
@@ -301,10 +292,10 @@ program main
     end do
     
     call ESMF_VMBarrier(vm, rc=rc)    
+
+    ! destroy fields
     call ESMF_FieldDestroy(srcField,rc=rc)
     call ESMF_FieldDestroy(dstField,rc=rc)
-
-
 
     ! deallocate pointers
     deallocate(nodeCoords)
@@ -316,7 +307,6 @@ program main
     deallocate(elementCoords)
     deallocate(SMBToISSM)
     deallocate(SurfaceOnElements)
-    
     
     ! call ISSM finalize (saves binary output .outbin file)
     call FinalizeISSM()
