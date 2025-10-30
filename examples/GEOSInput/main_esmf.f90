@@ -72,7 +72,7 @@ program main
     integer :: ncid, dimid_nodes, dimid_elements, dimid_onodes
     integer :: varid_nlon,varid_nlat,varid_ecn1,varid_ecn2,varid_ecn3,varid_nid
     integer :: varid_eid,varid_elon,varid_elat,varid_esurf,varid_nsurf,varid_nowners
-    character(20) :: output_filename !filename
+    character(20) :: output_filename ! netcdf filename
 
     ! declare ESMF variables
     type(ESMF_VM)                  :: vm    
@@ -257,7 +257,7 @@ program main
         call ESMF_VMBarrier(vm, rc=rc) 
         if (i==localPET) then
         write(output_filename,'("data_rank",I0,".nc")') localPET
-            rc = nf90_create(f, NF90_CLOBBER, ncid)
+            rc = nf90_create(output_filename, NF90_CLOBBER, ncid)
             rc = nf90_def_dim(ncid,"num_nodes",num_nodes,dimid_nodes)
             rc = nf90_def_dim(ncid,"num_owned_nodes",num_owned_nodes,dimid_onodes)
             rc = nf90_def_dim(ncid,"num_elements",num_elements,dimid_elements)
