@@ -154,17 +154,17 @@ extern "C" {
 		delete femmodel; femmodel=NULL;
 	} /*}}}*/
 
-    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords,int* nodeOwners){ 
+    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
         /*obtain nodes of mesh for creating ESMF version in Fortran interface */
         /*nodeIds are the global Id's of the nodes and nodeCoords are the     */
         /*(lon,lat) coordinates, as described in the ESMF reference document  */
-		int rank = IssmComm::GetRank();
+		int i0;
         for (int i=0;i<femmodel->vertices->Size();i++){
             Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
-            *(nodeIds+i)     = vertex->Sid()+1;
-            *(nodeCoords+2*i+0) = vertex->longitude;
-            *(nodeCoords+2*i+1) = vertex->latitude;
-			*(nodeOwners+i) = rank;
+			i0 = vertex->Lid();
+            *(nodeIds+i0)     = vertex->Sid()+1;
+            *(nodeCoords+2*i0+0) = vertex->longitude;
+            *(nodeCoords+2*i0+1) = vertex->latitude;
         }
     }
 
