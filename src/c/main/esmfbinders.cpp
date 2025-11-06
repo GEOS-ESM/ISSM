@@ -25,11 +25,7 @@ extern "C" {
         /*Initialize femmodel from arguments provided command line: */
 		femmodel = new FemModel(argc,argv,Ccomm);
 
-		/*Get number of nodes and elements from the mesh: */
-		// global number of elements:
-		//numberofelements=femmodel->elements->NumberOfElements();
-		
-		// local number of elements:
+		/*Get number of nodes and elements local to each process: */
 		numberofelements=femmodel->elements->Size();
 		numberofnodes=femmodel->vertices->Size();
 
@@ -46,17 +42,10 @@ extern "C" {
 
 	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
 		int numberofelements;
-		IssmDouble yts;
-		IssmDouble rho_ice;
-		IssmDouble area;
 		IssmDouble start_time,final_time;
 		
-
-		/*Figure out number of elements: */
+		/*Figure out number of elements local to process: */
 		numberofelements=femmodel->elements->Size();
-
-		/*Fetch some necessary constants: */
-		femmodel->parameters->FindParam(&yts,ConstantsYtsEnum);
 
 		/*Setup gcm forcings as element-wise input: {{{ */
 		for (int f=0;f<GCMForcingNumTerms;f++){
@@ -70,17 +59,10 @@ extern "C" {
 					case SMBgcmEnum:
 						/*{{{*/
 						{
-						/*Recover rho_ice: */
-						rho_ice=element->FindParam(MaterialsRhoIceEnum);
 
-						/*Recover area of element: */
-						area=element->SurfaceArea();
-
-						/*Recover smb forcing from the gcm forcings: */
+						/*Recover smb forcing from the gcm forcings: 
+						assume already converted to correct units [m/yr]*/
 						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
-
-						/*Convert to SI. The smbforcing from GEOS-5 in kg/s, and we transform it into m/s: */
-						smbforcing = smbforcing/(rho_ice*area);
 
 						/*Add into the element as new forcing :*/
 						element->AddInput(SmbMassBalanceEnum,&smbforcing,P0Enum);
