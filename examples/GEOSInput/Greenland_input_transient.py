@@ -8,6 +8,7 @@ from loadmodel import loadmodel
 from clusters.discover_geos import export_discover
 from loadresultsfromdisk import loadresultsfromdisk
 from marshall import marshall
+from verbose import verbose 
 
 md = loadmodel('./Models/Greenland_inversion.nc')
 md = loadresultsfromdisk(md,'GreenlandGEOS.outbin')
@@ -20,6 +21,7 @@ md.inversion.iscontrol = 0
 md.transient.requested_outputs = ['IceVolume', 'TotalSmb', 'SmbMassBalance']
 md.settings.waitonlock = 0
 md.private.solution = 'Transient'
+md.verbose = verbose('000000000')
 md.toolkits = toolkits()
 marshall(md) # create .bin file
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
