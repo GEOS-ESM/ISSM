@@ -60,8 +60,7 @@ extern "C" {
 						/*{{{*/
 						{
 
-						/*Recover smb forcing from the gcm forcings: 
-						assume already converted to correct units [m/yr]*/
+						/*Recover smb forcing from the gcm forcings*/
 						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
 
 						/*Add into the element as new forcing :*/
