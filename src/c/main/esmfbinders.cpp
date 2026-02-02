@@ -128,9 +128,6 @@ extern "C" {
 		/*Output results: */
 		OutputResultsx(femmodel);
 
-		/*Check point: */
-		femmodel->CheckPoint();
-
 		/*Wrap up: */
 		delete femmodel; femmodel=NULL;
 	} /*}}}*/
