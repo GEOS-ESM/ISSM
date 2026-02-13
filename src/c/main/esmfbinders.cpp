@@ -7,8 +7,8 @@
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
-const int ISSMOutputNumTerms = 1;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum };
+const int ISSMOutputNumTerms = 3;
+const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VelEnum };
 
 extern "C" {
 
@@ -101,6 +101,38 @@ extern "C" {
 						}
 						/*}}}*/
 						break; 
+				case ThicknessEnum:
+						/*{{{*/
+						{
+
+						IssmDouble thickness;
+
+						/*Recover thickness from the ISSM element: */
+						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
+						thickness_input->GetInputAverage(&thickness);
+
+						*(issmoutputs+f*numberofelements+i) = thickness;
+
+						}
+						/*}}}*/
+						break; 
+
+				case VelEnum:
+						/*{{{*/
+						{
+
+						IssmDouble vel;
+
+						/*Recover flow speed from the ISSM element: */
+						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
+						vel_input->GetInputAverage(&vel);
+
+						*(issmoutputs+f*numberofelements+i) = vel;
+
+						}
+						/*}}}*/
+						break; 
+
 					default: 
 						{ _error_("Unknown output type " << output_type << "\n"); }
 						break;
