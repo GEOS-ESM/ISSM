@@ -40,7 +40,7 @@ extern "C" {
         *pnumberofnodes=numberofnodes;
 	} /*}}}*/
 
-	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
+	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
 		int numberofelements;
 		IssmDouble start_time,final_time;
 		
@@ -61,10 +61,10 @@ extern "C" {
 						{
 
 						/*Recover smb forcing from the gcm forcings*/
-						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
+						IssmDouble smb_forcing=*(gcm_forcings+f*numberofelements+i); 
 
 						/*Add into the element as new forcing :*/
-						element->AddInput(SmbMassBalanceEnum,&smbforcing,P0Enum);
+						element->AddInput(SmbMassBalanceEnum,&smb_forcing,P0Enum);
 						}
 						/*}}}*/
 						break; 
@@ -96,7 +96,7 @@ extern "C" {
 						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
 						surface_input->GetInputAverage(&surface);
 
-						*(issmoutputs+f*numberofelements+i) = surface;
+						*(issm_outputs+f*numberofelements+i) = surface;
 
 						}
 						/*}}}*/
@@ -111,7 +111,7 @@ extern "C" {
 						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
 						thickness_input->GetInputAverage(&thickness);
 
-						*(issmoutputs+f*numberofelements+i) = thickness;
+						*(issm_outputs+f*numberofelements+i) = thickness;
 
 						}
 						/*}}}*/
@@ -127,7 +127,7 @@ extern "C" {
 						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
 						vel_input->GetInputAverage(&vel);
 
-						*(issmoutputs+f*numberofelements+i) = vel;
+						*(issm_outputs+f*numberofelements+i) = vel;
 
 						}
 						/*}}}*/

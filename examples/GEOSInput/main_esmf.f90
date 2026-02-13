@@ -21,11 +21,11 @@ program main
         integer(c_int)               :: comm
     end subroutine InitializeISSM
         
-    subroutine RunISSM(dt, gcmf, issmouts) bind(C,NAME="RunISSM")
+    subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
        import :: c_ptr, c_double
        real(c_double),   value   :: dt
-       type(c_ptr),      value   :: gcmf
-       type(c_ptr),      value   :: issmouts
+       type(c_ptr),      value   :: gcm_forcings
+       type(c_ptr),      value   :: issm_outputs
     end subroutine RunISSM
    
     subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
@@ -58,6 +58,10 @@ program main
     real(dp),    pointer, dimension(:)     :: SMBToISSM => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnElements => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnNodes => null()
+    real(dp),    pointer, dimension(:)     :: ICETHICK => null()
+    real(dp),    pointer, dimension(:)     :: ICEVEL => null()
+    real(dp),    pointer, dimension(:)     :: ICEEL => null()
+    real(dp),    pointer, dimension(:)     :: issm_outputs => null()
 
     ! filepath
     character(len=256) :: issm_path
@@ -89,6 +93,9 @@ program main
     integer,     pointer, dimension(:)     :: nodeIds => null()
     integer,     pointer, dimension(:)     :: nodeOwners => null()
     integer, allocatable  :: elementTypes(:)
+
+    integer                        :: num_outputs = 3
+
 
     dt = 0.05   ! timestep in years
 
@@ -139,6 +146,12 @@ program main
     allocate(SMBToISSM(num_elements))
     allocate(SurfaceOnElements(num_elements))
 
+    ! new for testing multiple outputs
+    allocate(ICEEL(num_elements))
+    allocate(ICETHICK(num_elements))
+    allocate(ICEVEL(num_elements))
+    allocate(issm_outputs(num_outputs*num_elements))
+
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
@@ -171,10 +184,23 @@ program main
     SMBToISSM(:) = 0
     SurfaceOnElements(:) = 0 ! placeholder
     SurfaceOnNodes(:) = 0 ! placeholder    
+
+    ICEEL(:) = 0 ! placeholder 
+    ICETHICK(:) = 0 ! placeholder    
+    ICEVEL(:) = 0 ! placeholder    
+    issm_outputs(:) = 0 !placeholder
+
     
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(SurfaceOnElements))
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
+
+
+    SurfaceOnElements(:) = issm_outputs(1:num_elements)
+    ICEEL(:) = big_array(1:num_elements)
+    ICETHICK(:) = big_array(num_elements+1:2*num_elements)
+    ICEVEL(:) = big_array(2*num_elements+1:3*num_elements)
+
  
     call ESMF_VMBarrier(vm, rc=rc)  
     srcField = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceOnElements,meshloc=ESMF_MESHLOC_ELEMENT, & 
@@ -299,6 +325,10 @@ program main
     deallocate(elementCoords)
     deallocate(SMBToISSM)
     deallocate(SurfaceOnElements)
+    deallocate(ICEEL)
+    deallocate(ICETHICK)
+    deallocate(ICEVEL)
+    deallocate(issm_outputs)
     
     ! call ISSM finalize (saves binary output .outbin file)
     call FinalizeISSM()
