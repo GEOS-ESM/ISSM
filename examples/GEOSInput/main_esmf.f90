@@ -197,9 +197,9 @@ program main
 
 
     SurfaceOnElements(:) = issm_outputs(1:num_elements)
-    ICEEL(:) = big_array(1:num_elements)
-    ICETHICK(:) = big_array(num_elements+1:2*num_elements)
-    ICEVEL(:) = big_array(2*num_elements+1:3*num_elements)
+    ICEEL(:) = issm_outputs(1:num_elements)
+    ICETHICK(:) = issm_outputs(num_elements+1:2*num_elements)
+    ICEVEL(:) = issm_outputs(2*num_elements+1:3*num_elements)
 
  
     call ESMF_VMBarrier(vm, rc=rc)  
