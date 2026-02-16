@@ -47,7 +47,7 @@ extern "C" {
 		/*Figure out number of elements local to process: */
 		numberofelements=femmodel->elements->Size();
 
-		/*Setup gcm forcings as element-wise input: {{{ */
+		/*Setup GCM forcings as element-wise input: {{{ */
 		for (int f=0;f<GCMForcingNumTerms;f++){
 
 			int forcing_type=GCMForcingTerms[f];
@@ -85,7 +85,7 @@ extern "C" {
 		/*Now, run: */
 		femmodel->Solve();
 
-		/*Retrieve ISSM outputs and pass them back to the Gcm : {{{*/
+		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
 
 			int output_type=ISSMOutputTerms[f];
