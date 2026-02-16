@@ -7,8 +7,8 @@
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
-const int ISSMOutputNumTerms = 1;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum };
+const int ISSMOutputNumTerms = 3;
+const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VelEnum };
 
 extern "C" {
 
@@ -40,14 +40,14 @@ extern "C" {
         *pnumberofnodes=numberofnodes;
 	} /*}}}*/
 
-	void RunISSM(IssmDouble dt, IssmDouble* gcmforcings, IssmDouble* issmoutputs){ /*{{{*/
+	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
 		int numberofelements;
 		IssmDouble start_time,final_time;
 		
 		/*Figure out number of elements local to process: */
 		numberofelements=femmodel->elements->Size();
 
-		/*Setup gcm forcings as element-wise input: {{{ */
+		/*Setup GCM forcings as element-wise input: {{{ */
 		for (int f=0;f<GCMForcingNumTerms;f++){
 
 			int forcing_type=GCMForcingTerms[f];
@@ -61,10 +61,10 @@ extern "C" {
 						{
 
 						/*Recover smb forcing from the gcm forcings*/
-						IssmDouble smbforcing=*(gcmforcings+f*numberofelements+i); 
+						IssmDouble smb_forcing=*(gcm_forcings+f*numberofelements+i); 
 
 						/*Add into the element as new forcing :*/
-						element->AddInput(SmbMassBalanceEnum,&smbforcing,P0Enum);
+						element->AddInput(SmbMassBalanceEnum,&smb_forcing,P0Enum);
 						}
 						/*}}}*/
 						break; 
@@ -77,7 +77,15 @@ extern "C" {
 
 		/*}}}*/
 
-		/*Retrieve ISSM outputs and pass them back to the Gcm : {{{*/
+		/*Before running, setup the time interval: */
+		femmodel->parameters->FindParam(&start_time,TimeEnum);
+		final_time=start_time+dt;
+		femmodel->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
+
+		/*Now, run: */
+		femmodel->Solve();
+
+		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
 
 			int output_type=ISSMOutputTerms[f];
@@ -96,27 +104,49 @@ extern "C" {
 						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
 						surface_input->GetInputAverage(&surface);
 
-						*(issmoutputs+f*numberofelements+i) = surface;
+						*(issm_outputs+f*numberofelements+i) = surface;
 
 						}
 						/*}}}*/
 						break; 
+				case ThicknessEnum:
+						/*{{{*/
+						{
+
+						IssmDouble thickness;
+
+						/*Recover thickness from the ISSM element: */
+						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
+						thickness_input->GetInputAverage(&thickness);
+
+						*(issm_outputs+f*numberofelements+i) = thickness;
+
+						}
+						/*}}}*/
+						break; 
+
+				case VelEnum:
+						/*{{{*/
+						{
+
+						IssmDouble vel;
+
+						/*Recover flow speed from the ISSM element: */
+						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
+						vel_input->GetInputAverage(&vel);
+
+						*(issm_outputs+f*numberofelements+i) = vel;
+
+						}
+						/*}}}*/
+						break; 
+
 					default: 
 						{ _error_("Unknown output type " << output_type << "\n"); }
 						break;
 				}
 			}
 		}
-
-		/*}}}*/
-
-		/*Before running, setup the time interval: */
-		femmodel->parameters->FindParam(&start_time,TimeEnum);
-		final_time=start_time+dt;
-		femmodel->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
-
-		/*Now, run: */
-		femmodel->Solve();
 
 		/*For the next time around, save the final time as start time */
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);

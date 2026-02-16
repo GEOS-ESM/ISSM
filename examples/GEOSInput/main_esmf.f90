@@ -21,11 +21,11 @@ program main
         integer(c_int)               :: comm
     end subroutine InitializeISSM
         
-    subroutine RunISSM(dt, gcmf, issmouts) bind(C,NAME="RunISSM")
+    subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
        import :: c_ptr, c_double
        real(c_double),   value   :: dt
-       type(c_ptr),      value   :: gcmf
-       type(c_ptr),      value   :: issmouts
+       type(c_ptr),      value   :: gcm_forcings
+       type(c_ptr),      value   :: issm_outputs
     end subroutine RunISSM
    
     subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
@@ -58,6 +58,10 @@ program main
     real(dp),    pointer, dimension(:)     :: SMBToISSM => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnElements => null()
     real(dp),    pointer, dimension(:)     :: SurfaceOnNodes => null()
+    real(dp),    pointer, dimension(:)     :: ICETHICK => null()
+    real(dp),    pointer, dimension(:)     :: ICEVEL => null()
+    real(dp),    pointer, dimension(:)     :: ICEEL => null()
+    real(dp),    pointer, dimension(:)     :: issm_outputs => null()
 
     ! filepath
     character(len=256) :: issm_path
@@ -72,6 +76,7 @@ program main
     integer :: ncid, dimid_nodes, dimid_elements, dimid_onodes
     integer :: varid_nlon,varid_nlat,varid_ecn1,varid_ecn2,varid_ecn3,varid_nid
     integer :: varid_eid,varid_elon,varid_elat,varid_esurf,varid_nsurf,varid_nowners
+    integer :: varid_thick, varid_vel
     character(20) :: output_filename ! netcdf filename
 
     ! declare ESMF variables
@@ -89,6 +94,9 @@ program main
     integer,     pointer, dimension(:)     :: nodeIds => null()
     integer,     pointer, dimension(:)     :: nodeOwners => null()
     integer, allocatable  :: elementTypes(:)
+
+    integer                        :: num_outputs = 3
+
 
     dt = 0.05   ! timestep in years
 
@@ -139,6 +147,12 @@ program main
     allocate(SMBToISSM(num_elements))
     allocate(SurfaceOnElements(num_elements))
 
+    ! new for testing multiple outputs
+    allocate(ICEEL(num_elements))
+    allocate(ICETHICK(num_elements))
+    allocate(ICEVEL(num_elements))
+    allocate(issm_outputs(num_outputs*num_elements))
+
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
@@ -171,10 +185,22 @@ program main
     SMBToISSM(:) = 0
     SurfaceOnElements(:) = 0 ! placeholder
     SurfaceOnNodes(:) = 0 ! placeholder    
-    
+
+    ICEEL(:) = 0 ! placeholder 
+    ICETHICK(:) = 0 ! placeholder    
+    ICEVEL(:) = 0 ! placeholder    
+    issm_outputs(:) = 0 !placeholder
+
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(SurfaceOnElements))
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
+
+
+    SurfaceOnElements(:) = issm_outputs(1:num_elements)
+    ICEEL(:) = issm_outputs(1:num_elements)
+    ICETHICK(:) = issm_outputs(num_elements+1:2*num_elements)
+    ICEVEL(:) = issm_outputs(2*num_elements+1:3*num_elements)
+
  
     call ESMF_VMBarrier(vm, rc=rc)  
     srcField = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceOnElements,meshloc=ESMF_MESHLOC_ELEMENT, & 
@@ -265,6 +291,10 @@ program main
             rc = nf90_def_var(ncid,"element_conn3",NF90_REAL,(/dimid_elements/),varid_ecn3)
             rc = nf90_def_var(ncid,"node_surf",NF90_REAL,(/dimid_onodes/),varid_nsurf)
             rc = nf90_def_var(ncid,"element_surf",NF90_REAL,(/dimid_elements/),varid_esurf)
+            rc = nf90_def_var(ncid,"ice_thick",NF90_REAL,(/dimid_elements/),varid_thick)
+            rc = nf90_def_var(ncid,"ice_vel",NF90_REAL,(/dimid_elements/),varid_vel)
+
+
             rc = nf90_enddef(ncid)
             rc = nf90_put_var(ncid,varid_nlon,nodeCoords(1::2))
             rc = nf90_put_var(ncid,varid_nlat,nodeCoords(2::2))
@@ -278,6 +308,8 @@ program main
             rc = nf90_put_var(ncid,varid_ecn3,elementConn(3::3))
             rc = nf90_put_var(ncid,varid_esurf,SurfaceOnElements(:))
             rc = nf90_put_var(ncid,varid_nsurf,SurfaceOnNodes(:))
+            rc = nf90_put_var(ncid,varid_thick,ICETHICK(:))
+            rc = nf90_put_var(ncid,varid_vel,ICEVEL(:))
             rc = nf90_close(ncid)
         end if
         call ESMF_VMBarrier(vm, rc=rc) 
@@ -299,6 +331,10 @@ program main
     deallocate(elementCoords)
     deallocate(SMBToISSM)
     deallocate(SurfaceOnElements)
+    deallocate(ICEEL)
+    deallocate(ICETHICK)
+    deallocate(ICEVEL)
+    deallocate(issm_outputs)
     
     ! call ISSM finalize (saves binary output .outbin file)
     call FinalizeISSM()
