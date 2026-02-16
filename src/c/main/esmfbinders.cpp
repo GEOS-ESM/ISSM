@@ -77,6 +77,14 @@ extern "C" {
 
 		/*}}}*/
 
+		/*Before running, setup the time interval: */
+		femmodel->parameters->FindParam(&start_time,TimeEnum);
+		final_time=start_time+dt;
+		femmodel->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
+
+		/*Now, run: */
+		femmodel->Solve();
+
 		/*Retrieve ISSM outputs and pass them back to the Gcm : {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
 
@@ -139,16 +147,6 @@ extern "C" {
 				}
 			}
 		}
-
-		/*}}}*/
-
-		/*Before running, setup the time interval: */
-		femmodel->parameters->FindParam(&start_time,TimeEnum);
-		final_time=start_time+dt;
-		femmodel->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
-
-		/*Now, run: */
-		femmodel->Solve();
 
 		/*For the next time around, save the final time as start time */
 		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);

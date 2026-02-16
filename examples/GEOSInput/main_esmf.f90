@@ -76,6 +76,7 @@ program main
     integer :: ncid, dimid_nodes, dimid_elements, dimid_onodes
     integer :: varid_nlon,varid_nlat,varid_ecn1,varid_ecn2,varid_ecn3,varid_nid
     integer :: varid_eid,varid_elon,varid_elat,varid_esurf,varid_nsurf,varid_nowners
+    integer :: varid_thick, varid_vel
     character(20) :: output_filename ! netcdf filename
 
     ! declare ESMF variables
@@ -190,7 +191,6 @@ program main
     ICEVEL(:) = 0 ! placeholder    
     issm_outputs(:) = 0 !placeholder
 
-    
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
     call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
@@ -291,6 +291,10 @@ program main
             rc = nf90_def_var(ncid,"element_conn3",NF90_REAL,(/dimid_elements/),varid_ecn3)
             rc = nf90_def_var(ncid,"node_surf",NF90_REAL,(/dimid_onodes/),varid_nsurf)
             rc = nf90_def_var(ncid,"element_surf",NF90_REAL,(/dimid_elements/),varid_esurf)
+            rc = nf90_def_var(ncid,"ice_thick",NF90_REAL,(/dimid_elements/),varid_thick)
+            rc = nf90_def_var(ncid,"ice_vel",NF90_REAL,(/dimid_elements/),varid_vel)
+
+
             rc = nf90_enddef(ncid)
             rc = nf90_put_var(ncid,varid_nlon,nodeCoords(1::2))
             rc = nf90_put_var(ncid,varid_nlat,nodeCoords(2::2))
@@ -304,6 +308,8 @@ program main
             rc = nf90_put_var(ncid,varid_ecn3,elementConn(3::3))
             rc = nf90_put_var(ncid,varid_esurf,SurfaceOnElements(:))
             rc = nf90_put_var(ncid,varid_nsurf,SurfaceOnNodes(:))
+            rc = nf90_put_var(ncid,varid_thick,ICETHICK(:))
+            rc = nf90_put_var(ncid,varid_vel,ICEVEL(:))
             rc = nf90_close(ncid)
         end if
         call ESMF_VMBarrier(vm, rc=rc) 
