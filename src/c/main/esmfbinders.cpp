@@ -14,27 +14,35 @@ const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, Vel
 
 extern "C" {
 
-	int list_bin_files(const char* dir,
+
+	static int N = 0;
+	static FemModel** femmodels = nullptr;
+
+	int init_models(const char* dir,
 					char* files,
 					int max_files,
 					int len)
 	{
-		int n = 0;
+		N = 0;
 
 		for (auto& e : std::filesystem::directory_iterator(dir))
 			if (e.is_regular_file() &&
 				e.path().extension() == ".bin" &&
-				n < max_files)
+				N < max_files)
 			{
-				std::strncpy(files + n*len,
-							e.path().filename().c_str(),
-							len-1);
-				files[n*len + len-1] = '\0';
-				++n;
+				std::string name = e.path().filename().string();
+				std::strncpy(files + N*len, name.c_str(), len-1);
+				files[N*len + len-1] = '\0';
+				++N;
 			}
 
-		return n;
+		// allocate the array of pointers for later use
+		if (N > 0)
+			femmodels = new FemModel*[N];
+
+		return N;   
 	}
+
 
 	FemModel *femmodel;
 
