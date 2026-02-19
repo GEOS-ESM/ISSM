@@ -3,6 +3,8 @@
  */ 
 
 #include "./issm.h"
+#include <filesystem>
+#include <cstring>
 
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
@@ -11,6 +13,28 @@ const int ISSMOutputNumTerms = 3;
 const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VelEnum };
 
 extern "C" {
+
+	int list_bin_files(const char* dir,
+					char* files,
+					int max_files,
+					int len)
+	{
+		int n = 0;
+
+		for (auto& e : std::filesystem::directory_iterator(dir))
+			if (e.is_regular_file() &&
+				e.path().extension() == ".bin" &&
+				n < max_files)
+			{
+				std::strncpy(files + n*len,
+							e.path().filename().c_str(),
+							len-1);
+				files[n*len + len-1] = '\0';
+				++n;
+			}
+
+		return n;
+	}
 
 	FemModel *femmodel;
 
