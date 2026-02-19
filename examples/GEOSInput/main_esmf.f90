@@ -5,13 +5,22 @@
 
 program main
     use iso_fortran_env, only: dp=>real64
-    use iso_c_binding, only: c_ptr, c_double, c_f_pointer,c_null_char, c_loc, c_int
+    use iso_c_binding, only: c_ptr, c_double, c_f_pointer,c_null_char, c_loc, c_int, c_char
     use ESMF
     use netcdf
     implicit none
 
     ! Define the interface for the ISSM C++ functions
     interface
+    function init_models(dir, files, max_files, len) bind(C, name="init_models")
+        import :: c_char, c_int
+        character(c_char), dimension(*) :: dir
+        character(c_char), dimension(*) :: files
+        integer(c_int), value :: max_files
+        integer(c_int), value :: len
+        integer(c_int) :: init_objects
+    end function
+
     subroutine InitializeISSM(argc, argv, num_elements, num_nodes, comm) bind(c, name="InitializeISSM")
         import :: c_ptr, c_int
         integer(c_int), value        :: argc
@@ -98,18 +107,47 @@ program main
     integer                        :: num_outputs = 3
 
 
+    ! stuff for file counting
+    integer, parameter :: max_files = 1000
+    integer, parameter :: len = 256
+    character(c_char) :: files(max_files*len)
+    character(len=256) :: EXPDIR
+    integer(c_int) :: N
+    character(len=len) :: name
+
+
     dt = 0.05   ! timestep in years
 
     ! Get the environment variable ISSM_DIR
     call get_environment_variable("ISSM_DIR", issm_path, length, status)
+
+    EXPDIR = trim(issm_path)//"/examples/GEOSInput"//c_null_char
 
     ! Manually set argc and argv
     argc = 4  ! Example: 3 arguments
     allocate(argv(argc))
     argv(1) = "this arg does not matter"//c_null_char 
     argv(2) = "TransientSolution"//c_null_char
-    argv(3) = trim(issm_path)//"/examples/GEOSInput"//c_null_char
+    argv(3) = EXPDIR
     argv(4) = "GreenlandGEOS"//c_null_char
+
+
+
+
+
+    ! file counting
+    print *, trim(EXPDIR)
+
+    N = init_models(EXPDIR, files, max_files, len)
+
+    print *, "N =", N
+
+    do i = 1, N
+        name = transfer(files((i-1)*len+1:i*len), name)
+        print *, trim(name)
+    end do
+
+
 
     ! Convert Fortran strings to C pointers (argv)
     allocate(argv_ptr(argc))
