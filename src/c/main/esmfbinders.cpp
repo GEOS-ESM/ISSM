@@ -43,11 +43,8 @@ extern "C" {
 		return N;   
 	}
 
-
-	FemModel *femmodel;
-
 	/*GEOS 5*/
-      void InitializeISSM(int argc, char** argv, int* pnumberofelements, int* pnumberofnodes, MPI_Fint* Fcomm){ /*{{{*/
+      void InitializeISSM(int argc, char** argv, int* pnumberofelements, int* pnumberofnodes, MPI_Fint* Fcomm, int id){ /*{{{*/
 		int numberofelements;
         int numberofnodes;
           
@@ -55,37 +52,37 @@ extern "C" {
         MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);             
                 
         /*Initialize femmodel from arguments provided command line: */
-		femmodel = new FemModel(argc,argv,Ccomm);
+		femmodels[id] = new FemModel(argc,argv,Ccomm);
 
 		/*Get number of nodes and elements local to each process: */
-		numberofelements=femmodel->elements->Size();
-		numberofnodes=femmodel->vertices->Size();
+		numberofelements=femmodels[id]->elements->Size();
+		numberofnodes=femmodels[id]->vertices->Size();
 
 		/*Bypass SMB model, will be provided by GCM! */
-		femmodel->parameters->SetParam(SMBgcmEnum,SmbEnum); 
+		femmodels[id]->parameters->SetParam(SMBgcmEnum,SmbEnum); 
 
         /*Restart file: */
-		femmodel->Restart();
+		femmodels[id]->Restart();
 
 		/*Assign output pointers: */
 		*pnumberofelements=numberofelements;
         *pnumberofnodes=numberofnodes;
 	} /*}}}*/
 
-	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
+	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs, int id){ /*{{{*/
 		int numberofelements;
 		IssmDouble start_time,final_time;
 		
 		/*Figure out number of elements local to process: */
-		numberofelements=femmodel->elements->Size();
+		numberofelements=femmodels[id]->elements->Size();
 
 		/*Setup GCM forcings as element-wise input: {{{ */
 		for (int f=0;f<GCMForcingNumTerms;f++){
 
 			int forcing_type=GCMForcingTerms[f];
 
-			for (int i=0;i<femmodel->elements->Size();i++){
-				Element* element=dynamic_cast<Element*>(femmodel->elements->GetObjectByOffset(i));
+			for (int i=0;i<femmodels[id]->elements->Size();i++){
+				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
 
 				switch(forcing_type){
 					case SMBgcmEnum:
@@ -110,20 +107,20 @@ extern "C" {
 		/*}}}*/
 
 		/*Before running, setup the time interval: */
-		femmodel->parameters->FindParam(&start_time,TimeEnum);
+		femmodels[id]->parameters->FindParam(&start_time,TimeEnum);
 		final_time=start_time+dt;
-		femmodel->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
+		femmodels[id]->parameters->SetParam(final_time,TimesteppingFinalTimeEnum); //we are bypassing ISSM's initial final time!
 
 		/*Now, run: */
-		femmodel->Solve();
+		femmodels[id]->Solve();
 
 		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
 
 			int output_type=ISSMOutputTerms[f];
 
-			for (int i=0;i<femmodel->elements->Size();i++){
-				Element* element=dynamic_cast<Element*>(femmodel->elements->GetObjectByOffset(i));
+			for (int i=0;i<femmodels[id]->elements->Size();i++){
+				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
 
 				switch(output_type){
 					case SurfaceEnum:
@@ -181,26 +178,28 @@ extern "C" {
 		}
 
 		/*For the next time around, save the final time as start time */
-		femmodel->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
+		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
 		
 	} /*}}}*/
 
 	void FinalizeISSM(){ /*{{{*/
 
+        for (int i = 0; i < N; ++i) {
 		/*Output results: */
-		OutputResultsx(femmodel);
-
-		/*Wrap up: */
-		delete femmodel; femmodel=NULL;
+			OutputResultsx(femmodels[i]);	
+			delete femmodels[i];
+			femmodels[i]=NULL;
+        }
+        delete[] femmodels; 
 	} /*}}}*/
 
-    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
+    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords, int id){ 
         /*obtain nodes of mesh for creating ESMF version in Fortran interface */
         /*nodeIds are the global Id's of the nodes and nodeCoords are the     */
         /*(lon,lat) coordinates, as described in the ESMF reference document  */
 		int i0;
-        for (int i=0;i<femmodel->vertices->Size();i++){
-            Vertex* vertex = xDynamicCast<Vertex*>(femmodel->vertices->GetObjectByOffset(i));
+        for (int i=0;i<femmodels[id]->vertices->Size();i++){
+            Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
 			i0 = vertex->Lid();
             *(nodeIds+i0)     = vertex->Sid()+1;
             *(nodeCoords+2*i0+0) = vertex->longitude;
@@ -208,12 +207,12 @@ extern "C" {
         }
     }
 
-    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords){
+    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords,int id){
         /*obtain elements of mesh for creating ESMF version in Fortran interface*/
         /*Element connectivity (elementConn) contains the indices of the nodes  */
         /*that form the element as described in the ESMF reference document     */ 
-        for(int i=0;i<femmodel->elements->Size();i++){
-            Element* element=xDynamicCast<Element*>(femmodel->elements->GetObjectByOffset(i));
+        for(int i=0;i<femmodels[id]->elements->Size();i++){
+            Element* element=xDynamicCast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
             *(elementIds + i)    = element->Sid()+1;
             *(elementConn + i*3+0) = element->vertices[0]->Lid()+1;
             *(elementConn + i*3+1) = element->vertices[1]->Lid()+1;
