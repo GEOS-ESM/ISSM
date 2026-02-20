@@ -21,33 +21,37 @@ program main
         integer(c_int) :: init_objects
     end function
 
-    subroutine InitializeISSM(argc, argv, num_elements, num_nodes, comm) bind(c, name="InitializeISSM")
+    subroutine InitializeISSM(argc, argv, num_elements, num_nodes, comm, id) bind(c, name="InitializeISSM")
         import :: c_ptr, c_int
         integer(c_int), value        :: argc
         type(c_ptr), dimension(argc) :: argv
         integer(c_int)               :: num_elements
         integer(c_int)               :: num_nodes
         integer(c_int)               :: comm
+        integer(c_int), value        :: id
     end subroutine InitializeISSM
         
-    subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
-       import :: c_ptr, c_double
+    subroutine RunISSM(dt, gcm_forcings, issm_outputs, id) bind(C,NAME="RunISSM")
+       import :: c_ptr, c_double, c_int
        real(c_double),   value   :: dt
        type(c_ptr),      value   :: gcm_forcings
        type(c_ptr),      value   :: issm_outputs
+       integer(c_int),   value   :: id
     end subroutine RunISSM
    
-    subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
-       import :: c_ptr
+    subroutine GetNodesISSM(nodeIds, nodeCoords, id) bind(C,NAME="GetNodesISSM")
+       import :: c_ptr, c_int
        type(c_ptr),      value   :: nodeIds
        type(c_ptr),      value   :: nodeCoords
+       integer(c_int),   value   :: id
     end subroutine GetNodesISSM
 
-    subroutine GetElementsISSM(elementIds, elementConn, elementCoords) bind(C,NAME="GetElementsISSM")
-       import :: c_ptr
+    subroutine GetElementsISSM(elementIds, elementConn, elementCoords,id) bind(C,NAME="GetElementsISSM")
+       import :: c_ptr, c_int
        type(c_ptr),      value   :: elementIds
        type(c_ptr),      value   :: elementConn
        type(c_ptr),      value   :: elementCoords
+       integer(c_int),   value   :: id
     end subroutine GetElementsISSM
 
     subroutine FinalizeISSM() bind(C,NAME="FinalizeISSM")
@@ -109,13 +113,17 @@ program main
 
     ! stuff for file counting
     integer, parameter :: max_files = 1000
-    integer, parameter :: len = 256
-    character(c_char) :: files(max_files*len)
+    integer, parameter :: strlen = 256
+    character(c_char) :: files(max_files*strlen)
     character(len=256) :: EXPDIR
     integer(c_int) :: N
-    character(len=len) :: name
+    character(len=strlen) :: name
     integer(c_int) :: id
+    integer :: start
 
+    integer :: total_elements ! elements for all models (on each PET)
+    integer :: total_nodes ! elements for all models (on each PET)
+    
 
     ! initialize ESMF to and get vm info / comm for ISSM MPI
     call ESMF_Initialize(vm=vm, defaultlogfilename="VMDefaultBasicsEx.Log", logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
@@ -137,44 +145,53 @@ program main
     argv(2) = "TransientSolution"//c_null_char
     argv(3) = EXPDIR
 
+    ! Convert Fortran strings to C pointers (argv)
+    allocate(argv_ptr(argc))
 
     ! file counting
     print *, trim(EXPDIR)
 
-    N = init_models(EXPDIR, files, max_files, len)
+    N = init_models(EXPDIR, files, max_files, strlen)
 
     print *, "N =", N
 
+    total_elements = 0
+    total_nodes = 0
+    
     do id = 1, N
-        name = transfer(files((id-1)*len+1:id*len), name)
+        start = (id-1)*strlen + 1
+
+        do i = 1, strlen
+            name(i:i) = files(start + i - 1)
+        end do
+        
+        name = name(:index(name,c_null_char)-5)
         print *, trim(name)
-        argv(4) = name//c_null_char
-   
+        argv(4) = trim(name)//c_null_char
+    
+        do i = 1, argc
+            ! Ensure that we are only getting the memory address once per string
+            argv_ptr(i) = c_loc(argv(i))
+        end do
+    
+       
+        ! Call the C++ function for initializing ISSM
+        ! gets the number of elements and nodes of the mesh
+        call ESMF_VMBarrier(vm, rc=rc)
+        call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm,id-1)
+        call ESMF_VMBarrier(vm, rc=rc)
 
+        total_elements = total_elements + num_elements
+        total_nodes = total_nodes + num_nodes
+        
+        ! ! print out some info if desired:
+        !print *, "number of elements on PET ", localPET, ": ", num_elements
+        !print *, "number of nodes on PET ", localPET, ": ", num_nodes
 
-
-    ! Convert Fortran strings to C pointers (argv)
-    allocate(argv_ptr(argc))
-
-    do i = 1, argc
-        ! Ensure that we are only getting the memory address once per string
-        argv_ptr(i) = c_loc(argv(i))
     end do
 
-
-    ! Call the C++ function for initializing ISSM
-    ! gets the number of elements and nodes of the mesh
-    call ESMF_VMBarrier(vm, rc=rc)
-    call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm,id-1)
-    call ESMF_VMBarrier(vm, rc=rc)
-
-    end do
-
-    STOP ! testing!
-
-    ! ! print out some info if desired:
-    !print *, "number of elements on PET ", localPET, ": ", num_elements
-    !print *, "number of nodes on PET ", localPET, ": ", num_nodes
+    num_elements = total_elements
+    num_nodes = total_nodes
 
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
@@ -195,10 +212,14 @@ program main
     allocate(ICEVEL(num_elements))
     allocate(issm_outputs(num_outputs*num_elements))
 
+    
+
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
-    call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
-    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords))
+    call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords),id)
+
+    STOP ! testing!
+    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),id)
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
@@ -235,7 +256,7 @@ program main
 
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs),id)
 
 
     SurfaceOnElements(:) = issm_outputs(1:num_elements)

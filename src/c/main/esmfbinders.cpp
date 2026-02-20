@@ -193,18 +193,27 @@ extern "C" {
         delete[] femmodels; 
 	} /*}}}*/
 
-    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords, int id){ 
+    void GetNodesISSM(int* nodeIds, IssmDouble* nodeCoords){ 
         /*obtain nodes of mesh for creating ESMF version in Fortran interface */
         /*nodeIds are the global Id's of the nodes and nodeCoords are the     */
         /*(lon,lat) coordinates, as described in the ESMF reference document  */
-		int i0;
-        for (int i=0;i<femmodels[id]->vertices->Size();i++){
-            Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
-			i0 = vertex->Lid();
-            *(nodeIds+i0)     = vertex->Sid()+1;
-            *(nodeCoords+2*i0+0) = vertex->longitude;
-            *(nodeCoords+2*i0+1) = vertex->latitude;
-        }
+        int shift;
+        shift = 0;
+        int i0;
+        for (int id=0;id<N;id++){
+    		
+            int local_size = femmodels[id]->vertices->Size();
+            for (int i=0;i<local_size;i++){
+                Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
+    			i0 = vertex->Lid() + shift;
+                *(nodeIds+i0)     = vertex->Sid()+1;
+                *(nodeCoords+2*i0+0) = vertex->longitude;
+                *(nodeCoords+2*i0+1) = vertex->latitude;
+                
+            }
+            shift += local_size; 
+
+        }    
     }
 
     void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords,int id){
