@@ -9,8 +9,8 @@ from loadresultsfromdisk import loadresultsfromdisk
 from marshall import marshall
 from verbose import verbose 
 
-md = loadmodel('./Models/Greenland_inversion.nc')
-md = loadresultsfromdisk(md,'GreenlandGEOS.outbin')
+md = loadmodel('./Models/Antarctica_inversion.nc')
+md = loadresultsfromdisk(md,'AntarcticaGEOS.outbin')
 md.friction.coefficient = md.results.StressbalanceSolution.FrictionCoefficient
 
 
@@ -25,5 +25,5 @@ md.verbose = verbose('000000000')
 md.toolkits = toolkits()
 marshall(md) # create .bin file
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
-export_discover(md,'./Models/Greenland_initialization.nc',delete_rundir=True)
+export_discover(md,'./Models/Antarctica_initialization.nc',delete_rundir=True)
 
