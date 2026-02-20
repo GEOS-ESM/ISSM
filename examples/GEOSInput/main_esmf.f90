@@ -114,6 +114,13 @@ program main
     character(len=256) :: EXPDIR
     integer(c_int) :: N
     character(len=len) :: name
+    integer(c_int) :: id
+
+
+    ! initialize ESMF to and get vm info / comm for ISSM MPI
+    call ESMF_Initialize(vm=vm, defaultlogfilename="VMDefaultBasicsEx.Log", logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
+
+    call ESMF_VMGet(vm,mpiCommunicator=comm,localPET=localPET,petCount=petCount,rc=rc)    
 
 
     dt = 0.05   ! timestep in years
@@ -129,10 +136,6 @@ program main
     argv(1) = "this arg does not matter"//c_null_char 
     argv(2) = "TransientSolution"//c_null_char
     argv(3) = EXPDIR
-    argv(4) = "GreenlandGEOS"//c_null_char
-
-
-
 
 
     ! file counting
@@ -142,10 +145,11 @@ program main
 
     print *, "N =", N
 
-    do i = 1, N
-        name = transfer(files((i-1)*len+1:i*len), name)
+    do id = 1, N
+        name = transfer(files((id-1)*len+1:id*len), name)
         print *, trim(name)
-    end do
+        argv(4) = name//c_null_char
+   
 
 
 
@@ -157,16 +161,16 @@ program main
         argv_ptr(i) = c_loc(argv(i))
     end do
 
-    ! initialize ESMF to and get vm info / comm for ISSM MPI
-    call ESMF_Initialize(vm=vm, defaultlogfilename="VMDefaultBasicsEx.Log", logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
-
-    call ESMF_VMGet(vm,mpiCommunicator=comm,localPET=localPET,petCount=petCount,rc=rc)    
 
     ! Call the C++ function for initializing ISSM
     ! gets the number of elements and nodes of the mesh
     call ESMF_VMBarrier(vm, rc=rc)
-    call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm)
+    call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm,id-1)
     call ESMF_VMBarrier(vm, rc=rc)
+
+    end do
+
+    STOP ! testing!
 
     ! ! print out some info if desired:
     !print *, "number of elements on PET ", localPET, ": ", num_elements
