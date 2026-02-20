@@ -99,15 +99,5 @@ md.settings.waitonlock = 0
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
 marshall(md) # create .bin file
 
-# Update model friction fields accordingly
-md.friction.coefficient=md.results.StressbalanceSolution.FrictionCoefficient
-
-#wooo
-
-md.private.solution = 'Stressbalance'
-md.settings.waitonlock = 0
-md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
-marshall(md) # create .bin file
-
 # export configuration for loading solution in next step
 export_discover(md,'./Models/Antarctica_inversion.nc',delete_rundir=True)
