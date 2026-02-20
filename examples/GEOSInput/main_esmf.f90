@@ -39,19 +39,17 @@ program main
        integer(c_int),   value   :: id
     end subroutine RunISSM
    
-    subroutine GetNodesISSM(nodeIds, nodeCoords, id) bind(C,NAME="GetNodesISSM")
+    subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
        import :: c_ptr, c_int
        type(c_ptr),      value   :: nodeIds
        type(c_ptr),      value   :: nodeCoords
-       integer(c_int),   value   :: id
     end subroutine GetNodesISSM
 
-    subroutine GetElementsISSM(elementIds, elementConn, elementCoords,id) bind(C,NAME="GetElementsISSM")
+    subroutine GetElementsISSM(elementIds, elementConn, elementCoords) bind(C,NAME="GetElementsISSM")
        import :: c_ptr, c_int
        type(c_ptr),      value   :: elementIds
        type(c_ptr),      value   :: elementConn
        type(c_ptr),      value   :: elementCoords
-       integer(c_int),   value   :: id
     end subroutine GetElementsISSM
 
     subroutine FinalizeISSM() bind(C,NAME="FinalizeISSM")
@@ -216,10 +214,15 @@ program main
 
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
-    call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords),id)
+    call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
+
+    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords))
+
+
+    print *, num_elements
+    print *, elementIds
 
     STOP ! testing!
-    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),id)
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 

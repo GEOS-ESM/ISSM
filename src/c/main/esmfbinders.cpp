@@ -206,7 +206,7 @@ extern "C" {
             for (int i=0;i<local_size;i++){
                 Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
     			i0 = vertex->Lid() + shift;
-                *(nodeIds+i0)     = vertex->Sid()+1;
+                *(nodeIds+i0)     = vertex->Sid()+1+shift;
                 *(nodeCoords+2*i0+0) = vertex->longitude;
                 *(nodeCoords+2*i0+1) = vertex->latitude;
                 
@@ -216,27 +216,35 @@ extern "C" {
         }    
     }
 
-    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords,int id){
+    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords){
         /*obtain elements of mesh for creating ESMF version in Fortran interface*/
         /*Element connectivity (elementConn) contains the indices of the nodes  */
         /*that form the element as described in the ESMF reference document     */ 
-        for(int i=0;i<femmodels[id]->elements->Size();i++){
-            Element* element=xDynamicCast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-            *(elementIds + i)    = element->Sid()+1;
-            *(elementConn + i*3+0) = element->vertices[0]->Lid()+1;
-            *(elementConn + i*3+1) = element->vertices[1]->Lid()+1;
-            *(elementConn + i*3+2) = element->vertices[2]->Lid()+1;
-
-			// Compute the triangle centroid in longitude/latitude
-			IssmDouble centroid_lon=0.0,centroid_lat=0.0;
-			for(int j=0;j<3;j++){
-			centroid_lon += element->vertices[j]->longitude / 3.0;
-			centroid_lat += element->vertices[j]->latitude / 3.0;
-			}
-		
-			*(elementCoords + 2*i + 0) = centroid_lon;
-			*(elementCoords + 2*i + 1) = centroid_lat;
-
+        int shift;
+        shift = 0;
+        int i0;
+        for (int id=0;id<N;id++){
+            int local_size = femmodels[id]->elements->Size();
+            for(int i=0;i<local_size;i++){
+                Element* element=xDynamicCast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
+                i0 = i + shift; 
+                *(elementIds+i0)    = element->Sid()+1+shift;
+                *(elementConn + i0*3+0) = element->vertices[0]->Lid()+1;
+                *(elementConn + i0*3+1) = element->vertices[1]->Lid()+1;
+                *(elementConn + i0*3+2) = element->vertices[2]->Lid()+1;
+    
+    			// Compute the triangle centroid in longitude/latitude
+    			IssmDouble centroid_lon=0.0,centroid_lat=0.0;
+    			for(int j=0;j<3;j++){
+    			centroid_lon += element->vertices[j]->longitude / 3.0;
+    			centroid_lat += element->vertices[j]->latitude / 3.0;
+    			}
+    		
+    			*(elementCoords + 2*i0 + 0) = centroid_lon;
+    			*(elementCoords + 2*i0 + 1) = centroid_lat;
+    
+            }
+            shift += local_size; 
         }
     }
 
