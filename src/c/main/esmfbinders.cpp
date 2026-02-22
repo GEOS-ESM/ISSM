@@ -1,10 +1,12 @@
 /*!\file:  esmfbinder.cpp
- * \brief: ESMF binders for ISSM. Binders developed initially for the GEOS-5 framework.
+ * \brief: Binders developed for NASA's GEOS Earth System Model.
  */ 
 
 #include "./issm.h"
 #include <filesystem>
-#include <cstring>
+#include <vector>       
+#include <string>      
+#include <algorithm>    
 
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
@@ -16,58 +18,80 @@ extern "C" {
 
 
 	static int N = 0;
-	static FemModel** femmodels = nullptr;
+    static FemModel** femmodels = nullptr;
 
-	int init_models(const char* dir,
-					char* files,
-					int max_files,
-					int len)
-	{
-		N = 0;
-
-		for (auto& e : std::filesystem::directory_iterator(dir))
-			if (e.is_regular_file() &&
-				e.path().extension() == ".bin" &&
-				N < max_files)
-			{
-				std::string name = e.path().filename().string();
-				std::strncpy(files + N*len, name.c_str(), len-1);
-				files[N*len + len-1] = '\0';
-				++N;
-			}
-
-		// allocate the array of pointers for later use
-		if (N > 0)
-			femmodels = new FemModel*[N];
-
-		return N;   
-	}
-
-	/*GEOS 5*/
-      void InitializeISSM(int argc, char** argv, int* pnumberofelements, int* pnumberofnodes, MPI_Fint* Fcomm, int id){ /*{{{*/
-		int numberofelements;
-        int numberofnodes;
-          
-        /* convert Fortran MPI comm to C MPI comm */
-        MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);             
-                
-        /*Initialize femmodel from arguments provided command line: */
-		femmodels[id] = new FemModel(argc,argv,Ccomm);
-
-		/*Get number of nodes and elements local to each process: */
-		numberofelements=femmodels[id]->elements->Size();
-		numberofnodes=femmodels[id]->vertices->Size();
-
-		/*Bypass SMB model, will be provided by GCM! */
-		femmodels[id]->parameters->SetParam(SMBgcmEnum,SmbEnum); 
-
-        /*Restart file: */
-		femmodels[id]->Restart();
-
-		/*Assign output pointers: */
-		*pnumberofelements=numberofelements;
-        *pnumberofnodes=numberofnodes;
-	} /*}}}*/
+    void InitializeISSM(const char* EXPDIR,
+                        int* ptotal_elements,
+                        int* ptotal_nodes,
+                        MPI_Fint* Fcomm)
+    {
+        int total_elements = 0;
+        int total_nodes    = 0;
+    
+        /* Convert Fortran MPI comm to C MPI comm */
+        MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);
+    
+        /* -------------------------------------------------- */
+        /* 1) Scan directory for .bin files                   */
+        /* -------------------------------------------------- */
+        std::vector<std::string> binfiles;
+    
+        for (auto& e : std::filesystem::directory_iterator(EXPDIR)) {
+            if (e.is_regular_file() && e.path().extension() == ".bin") {
+                binfiles.push_back(e.path().stem().string()); // remove ".bin"
+            }
+        }
+    
+        std::sort(binfiles.begin(), binfiles.end()); // deterministic order
+    
+        N = static_cast<int>(binfiles.size());
+    
+        if (N == 0) {
+            *ptotal_elements = 0;
+            *ptotal_nodes    = 0;
+            return;
+        }
+    
+        /* -------------------------------------------------- */
+        /* 2) Allocate FemModel pointer array                 */
+        /* -------------------------------------------------- */
+        femmodels = new FemModel*[N];
+    
+        /* -------------------------------------------------- */
+        /* 3) Initialize each model and accumulate sizes      */
+        /* -------------------------------------------------- */
+        for (int id = 0; id < N; ++id) {
+    
+            std::string solution = "TransientSolution";
+            std::string expdir   = EXPDIR;
+            std::string filename = binfiles[id];  // no .bin extension
+    
+            int argc = 4;
+            char* argv[4];
+    
+            argv[0] = const_cast<char*>("issm");
+            argv[1] = const_cast<char*>(solution.c_str());
+            argv[2] = const_cast<char*>(expdir.c_str());
+            argv[3] = const_cast<char*>(filename.c_str());
+    
+            femmodels[id] = new FemModel(argc, argv, Ccomm);
+    
+            int local_elements = femmodels[id]->elements->Size();
+            int local_nodes    = femmodels[id]->vertices->Size();
+    
+            total_elements += local_elements;
+            total_nodes    += local_nodes;
+    
+            femmodels[id]->parameters->SetParam(SMBgcmEnum, SmbEnum);
+            femmodels[id]->Restart();
+        }
+    
+        /* -------------------------------------------------- */
+        /* 4) Return global totals                            */
+        /* -------------------------------------------------- */
+        *ptotal_elements = total_elements;
+        *ptotal_nodes    = total_nodes;
+    }
 
 	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
 		int local_size;

@@ -12,23 +12,12 @@ program main
 
     ! Define the interface for the ISSM C++ functions
     interface
-    function init_models(dir, files, max_files, len) bind(C, name="init_models")
+    subroutine InitializeISSM(expdir, num_elements, num_nodes, comm) bind(c, name="InitializeISSM")
         import :: c_char, c_int
-        character(c_char), dimension(*) :: dir
-        character(c_char), dimension(*) :: files
-        integer(c_int), value :: max_files
-        integer(c_int), value :: len
-        integer(c_int) :: init_objects
-    end function
-
-    subroutine InitializeISSM(argc, argv, num_elements, num_nodes, comm, id) bind(c, name="InitializeISSM")
-        import :: c_ptr, c_int
-        integer(c_int), value        :: argc
-        type(c_ptr), dimension(argc) :: argv
-        integer(c_int)               :: num_elements
-        integer(c_int)               :: num_nodes
-        integer(c_int)               :: comm
-        integer(c_int), value        :: id
+        character(c_char), dimension(*) :: expdir
+        integer(c_int)                  :: num_elements
+        integer(c_int)                  :: num_nodes
+        integer(c_int)                  :: comm
     end subroutine InitializeISSM
         
     subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
@@ -111,14 +100,8 @@ program main
 
 
     ! stuff for file counting
-    integer, parameter :: max_files = 100
-    integer, parameter :: strlen = 30
-    character(c_char) :: files(max_files*strlen)
     character(len=256) :: EXPDIR
-    integer(c_int) :: N
-    character(len=strlen) :: name
-    integer(c_int) :: id
-    integer :: start
+
 
     integer :: total_elements ! elements for all models (on each PET)
     integer :: total_nodes ! elements for all models (on each PET)
@@ -137,60 +120,7 @@ program main
 
     EXPDIR = trim(issm_path)//"/examples/GEOSInput"//c_null_char
 
-    ! Manually set argc and argv
-    argc = 4  ! Example: 3 arguments
-    allocate(argv(argc))
-    argv(1) = "this arg does not matter"//c_null_char 
-    argv(2) = "TransientSolution"//c_null_char
-    argv(3) = EXPDIR
-
-    ! Convert Fortran strings to C pointers (argv)
-    allocate(argv_ptr(argc))
-
-    ! file counting
-    print *, trim(EXPDIR)
-
-    N = init_models(EXPDIR, files, max_files, strlen)
-
-    print *, "N =", N
-
-    total_elements = 0
-    total_nodes = 0
-    
-    do id = 1, N
-        start = (id-1)*strlen + 1
-
-        do i = 1, strlen
-            name(i:i) = files(start + i - 1)
-        end do
-        
-        name = name(:index(name,c_null_char)-5)
-        print *, trim(name)
-        argv(4) = trim(name)//c_null_char
-    
-        do i = 1, argc
-            ! Ensure that we are only getting the memory address once per string
-            argv_ptr(i) = c_loc(argv(i))
-        end do
-    
-       
-        ! Call the C++ function for initializing ISSM
-        ! gets the number of elements and nodes of the mesh
-        call ESMF_VMBarrier(vm, rc=rc)
-        call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm,id-1)
-        call ESMF_VMBarrier(vm, rc=rc)
-
-        total_elements = total_elements + num_elements
-        total_nodes = total_nodes + num_nodes
-        
-        ! ! print out some info if desired:
-        !print *, "number of elements on PET ", localPET, ": ", num_elements
-        !print *, "number of nodes on PET ", localPET, ": ", num_nodes
-
-    end do
-
-    num_elements = total_elements
-    num_nodes = total_nodes
+    call InitializeISSM(EXPDIR, num_elements, num_nodes, comm)
 
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
@@ -211,8 +141,6 @@ program main
     allocate(ICETHICK(num_elements))
     allocate(ICEVEL(num_elements))
     allocate(issm_outputs(num_outputs*num_elements))
-
-    
 
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
