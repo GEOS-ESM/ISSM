@@ -31,12 +31,11 @@ program main
         integer(c_int), value        :: id
     end subroutine InitializeISSM
         
-    subroutine RunISSM(dt, gcm_forcings, issm_outputs, id) bind(C,NAME="RunISSM")
+    subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
        import :: c_ptr, c_double, c_int
        real(c_double),   value   :: dt
        type(c_ptr),      value   :: gcm_forcings
        type(c_ptr),      value   :: issm_outputs
-       integer(c_int),   value   :: id
     end subroutine RunISSM
    
     subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
@@ -45,11 +44,12 @@ program main
        type(c_ptr),      value   :: nodeCoords
     end subroutine GetNodesISSM
 
-    subroutine GetElementsISSM(elementIds, elementConn, elementCoords) bind(C,NAME="GetElementsISSM")
+    subroutine GetElementsISSM(elementIds, elementConn, elementCoords, glacIds) bind(C,NAME="GetElementsISSM")
        import :: c_ptr, c_int
        type(c_ptr),      value   :: elementIds
        type(c_ptr),      value   :: elementConn
        type(c_ptr),      value   :: elementCoords
+       type(c_ptr),      value   :: glacIds
     end subroutine GetElementsISSM
 
     subroutine FinalizeISSM() bind(C,NAME="FinalizeISSM")
@@ -98,6 +98,7 @@ program main
     integer                        :: rc
     type(ESMF_Mesh)                :: mesh
     integer                        :: sdim
+    integer, pointer, dimension(:) :: glacIds       => null()
     integer, pointer, dimension(:) :: elementIds    => null()
     integer, pointer, dimension(:) :: elementConn   => null()
     real(dp),pointer, dimension(:) :: elementCoords => null()
@@ -110,8 +111,8 @@ program main
 
 
     ! stuff for file counting
-    integer, parameter :: max_files = 1000
-    integer, parameter :: strlen = 256
+    integer, parameter :: max_files = 100
+    integer, parameter :: strlen = 30
     character(c_char) :: files(max_files*strlen)
     character(len=256) :: EXPDIR
     integer(c_int) :: N
@@ -197,6 +198,7 @@ program main
     allocate(nodeOwners(num_nodes))
     allocate(elementTypes(num_elements))
     allocate(elementIds(num_elements))
+    allocate(glacIds(num_elements))
     allocate(elementConn(3*num_elements))
     allocate(elementCoords(2*num_elements))
     
@@ -216,13 +218,7 @@ program main
     ! get information about nodes and elements
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
 
-    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords))
-
-
-    print *, num_elements
-    print *, elementIds
-
-    STOP ! testing!
+    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),c_loc(glacIds))
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
@@ -240,6 +236,7 @@ program main
         print *, "Succesfully created mesh"
         end if 
     end if
+
 
     call ESMF_VMBarrier(vm, rc=rc)
 
@@ -259,14 +256,12 @@ program main
 
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs),id)
-
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
 
     SurfaceOnElements(:) = issm_outputs(1:num_elements)
     ICEEL(:) = issm_outputs(1:num_elements)
     ICETHICK(:) = issm_outputs(num_elements+1:2*num_elements)
     ICEVEL(:) = issm_outputs(2*num_elements+1:3*num_elements)
-
  
     call ESMF_VMBarrier(vm, rc=rc)  
     srcField = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceOnElements,meshloc=ESMF_MESHLOC_ELEMENT, & 

@@ -69,28 +69,43 @@ extern "C" {
         *pnumberofnodes=numberofnodes;
 	} /*}}}*/
 
-	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs, int id){ /*{{{*/
-		int numberofelements;
+	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
+		int local_size;
+        int global_size;
 		IssmDouble start_time,final_time;
+        int shift;
+        int i0;
+
+        // get total number of elements across all models
+        global_size = 0;
+        for (int id=0;id<N;id++){
+            local_size=femmodels[id]->elements->Size();
+            global_size += local_size;
+        }
+
+        shift = 0; // shift starting position of each model input
+        for (int id=0;id<N;id++){
 		
 		/*Figure out number of elements local to process: */
-		numberofelements=femmodels[id]->elements->Size();
+		local_size=femmodels[id]->elements->Size();
 
 		/*Setup GCM forcings as element-wise input: {{{ */
 		for (int f=0;f<GCMForcingNumTerms;f++){
 
 			int forcing_type=GCMForcingTerms[f];
 
-			for (int i=0;i<femmodels[id]->elements->Size();i++){
+			for (int i=0;i<local_size;i++){
 				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
 
+                i0 = i + shift;
+                
 				switch(forcing_type){
 					case SMBgcmEnum:
 						/*{{{*/
 						{
 
 						/*Recover smb forcing from the gcm forcings*/
-						IssmDouble smb_forcing=*(gcm_forcings+f*numberofelements+i); 
+						IssmDouble smb_forcing=*(gcm_forcings+f*global_size+i0); 
 
 						/*Add into the element as new forcing :*/
 						element->AddInput(SmbMassBalanceEnum,&smb_forcing,P0Enum);
@@ -119,9 +134,9 @@ extern "C" {
 
 			int output_type=ISSMOutputTerms[f];
 
-			for (int i=0;i<femmodels[id]->elements->Size();i++){
+			for (int i=0;i<local_size;i++){
 				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-
+                i0 = i + shift;
 				switch(output_type){
 					case SurfaceEnum:
 						/*{{{*/
@@ -133,7 +148,7 @@ extern "C" {
 						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
 						surface_input->GetInputAverage(&surface);
 
-						*(issm_outputs+f*numberofelements+i) = surface;
+						*(issm_outputs+f*global_size+i0) = surface;
 
 						}
 						/*}}}*/
@@ -148,7 +163,7 @@ extern "C" {
 						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
 						thickness_input->GetInputAverage(&thickness);
 
-						*(issm_outputs+f*numberofelements+i) = thickness;
+						*(issm_outputs+f*global_size+i0) = thickness;
 
 						}
 						/*}}}*/
@@ -164,7 +179,7 @@ extern "C" {
 						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
 						vel_input->GetInputAverage(&vel);
 
-						*(issm_outputs+f*numberofelements+i) = vel;
+						*(issm_outputs+f*global_size+i0) = vel;
 
 						}
 						/*}}}*/
@@ -179,6 +194,10 @@ extern "C" {
 
 		/*For the next time around, save the final time as start time */
 		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
+
+
+        shift += local_size;
+        }
 		
 	} /*}}}*/
 
@@ -201,7 +220,6 @@ extern "C" {
         shift = 0;
         int i0;
         for (int id=0;id<N;id++){
-    		
             int local_size = femmodels[id]->vertices->Size();
             for (int i=0;i<local_size;i++){
                 Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
@@ -212,26 +230,29 @@ extern "C" {
                 
             }
             shift += local_size; 
-
         }    
     }
 
-    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords){
+    void GetElementsISSM(int* elementIds,int* elementConn,IssmDouble* elementCoords,int* glacIds){
         /*obtain elements of mesh for creating ESMF version in Fortran interface*/
         /*Element connectivity (elementConn) contains the indices of the nodes  */
         /*that form the element as described in the ESMF reference document     */ 
-        int shift;
-        shift = 0;
+        int shift_elements;
+        int shift_nodes;
+        shift_elements = 0;
+        shift_nodes = 0;
         int i0;
         for (int id=0;id<N;id++){
-            int local_size = femmodels[id]->elements->Size();
-            for(int i=0;i<local_size;i++){
+            int local_size_elements = femmodels[id]->elements->Size();
+            int local_size_nodes = femmodels[id]->vertices->Size();
+            for(int i=0;i<local_size_elements;i++){
                 Element* element=xDynamicCast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-                i0 = i + shift; 
-                *(elementIds+i0)    = element->Sid()+1+shift;
-                *(elementConn + i0*3+0) = element->vertices[0]->Lid()+1;
-                *(elementConn + i0*3+1) = element->vertices[1]->Lid()+1;
-                *(elementConn + i0*3+2) = element->vertices[2]->Lid()+1;
+                i0 = i + shift_elements; 
+                *(elementIds+i0)    = element->Sid()+1+shift_elements;
+                *(glacIds+i0)    = id;
+                *(elementConn + i0*3+0) = element->vertices[0]->Lid()+1+shift_nodes;
+                *(elementConn + i0*3+1) = element->vertices[1]->Lid()+1+shift_nodes;
+                *(elementConn + i0*3+2) = element->vertices[2]->Lid()+1+shift_nodes;
     
     			// Compute the triangle centroid in longitude/latitude
     			IssmDouble centroid_lon=0.0,centroid_lat=0.0;
@@ -244,7 +265,8 @@ extern "C" {
     			*(elementCoords + 2*i0 + 1) = centroid_lat;
     
             }
-            shift += local_size; 
+            shift_elements += local_size_elements; 
+            shift_nodes += local_size_nodes;
         }
     }
 
