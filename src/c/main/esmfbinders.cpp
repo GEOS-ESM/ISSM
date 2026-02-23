@@ -17,7 +17,7 @@ const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, Vel
 extern "C" {
 
 
-	static int N = 0;
+	static int N = 0; // total number of input files (glaciers)
     static FemModel** femmodels = nullptr;
 
     void InitializeISSM(const char* EXPDIR,
@@ -31,9 +31,7 @@ extern "C" {
         /* Convert Fortran MPI comm to C MPI comm */
         MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);
     
-        /* -------------------------------------------------- */
         /* 1) Scan directory for .bin files                   */
-        /* -------------------------------------------------- */
         std::vector<std::string> binfiles;
     
         for (auto& e : std::filesystem::directory_iterator(EXPDIR)) {
@@ -42,9 +40,9 @@ extern "C" {
             }
         }
     
-        std::sort(binfiles.begin(), binfiles.end()); // deterministic order
+        std::sort(binfiles.begin(), binfiles.end()); 
     
-        N = static_cast<int>(binfiles.size());
+        N = static_cast<int>(binfiles.size()); // total number of input files
     
         if (N == 0) {
             *ptotal_elements = 0;
@@ -52,14 +50,10 @@ extern "C" {
             return;
         }
     
-        /* -------------------------------------------------- */
-        /* 2) Allocate FemModel pointer array                 */
-        /* -------------------------------------------------- */
+        /* Allocate FemModel pointer array                 */
         femmodels = new FemModel*[N];
     
-        /* -------------------------------------------------- */
-        /* 3) Initialize each model and accumulate sizes      */
-        /* -------------------------------------------------- */
+        /* Initialize each model and accumulate global sizes      */
         for (int id = 0; id < N; ++id) {
     
             std::string solution = "TransientSolution";
@@ -86,9 +80,7 @@ extern "C" {
             femmodels[id]->Restart();
         }
     
-        /* -------------------------------------------------- */
-        /* 4) Return global totals                            */
-        /* -------------------------------------------------- */
+        /* Return global sizes                            */
         *ptotal_elements = total_elements;
         *ptotal_nodes    = total_nodes;
     }
