@@ -122,6 +122,8 @@ program main
 
     call InitializeISSM(EXPDIR, num_elements, num_nodes, comm)
 
+    print *, "rank: ", localPET, " num_elements: ", num_elements
+
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
     allocate(nodeIds(num_nodes))
@@ -147,6 +149,8 @@ program main
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
 
     call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),c_loc(glacIds))
+
+    print *, "max elementIds: ", maxval(elementIds)
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
