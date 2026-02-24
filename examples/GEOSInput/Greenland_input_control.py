@@ -9,12 +9,10 @@ from netCDF4 import Dataset
 from InterpFromGridToMesh import InterpFromGridToMesh
 from bamg import bamg
 from xy2ll import xy2ll
-from plotmodel import plotmodel
 from loadmodel import loadmodel
 from setmask import setmask
 from parameterize import parameterize
 from setflowequation import setflowequation
-from solve import solve
 from ll2xy import ll2xy
 from clusters.discover_geos import export_discover
 from marshall import marshall

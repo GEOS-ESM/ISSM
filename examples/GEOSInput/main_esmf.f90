@@ -5,40 +5,40 @@
 
 program main
     use iso_fortran_env, only: dp=>real64
-    use iso_c_binding, only: c_ptr, c_double, c_f_pointer,c_null_char, c_loc, c_int
+    use iso_c_binding, only: c_ptr, c_double, c_f_pointer,c_null_char, c_loc, c_int, c_char
     use ESMF
     use netcdf
     implicit none
 
     ! Define the interface for the ISSM C++ functions
     interface
-    subroutine InitializeISSM(argc, argv, num_elements, num_nodes, comm) bind(c, name="InitializeISSM")
-        import :: c_ptr, c_int
-        integer(c_int), value        :: argc
-        type(c_ptr), dimension(argc) :: argv
-        integer(c_int)               :: num_elements
-        integer(c_int)               :: num_nodes
-        integer(c_int)               :: comm
+    subroutine InitializeISSM(expdir, num_elements, num_nodes, comm) bind(c, name="InitializeISSM")
+        import :: c_char, c_int
+        character(c_char), dimension(*) :: expdir
+        integer(c_int)                  :: num_elements
+        integer(c_int)                  :: num_nodes
+        integer(c_int)                  :: comm
     end subroutine InitializeISSM
         
     subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
-       import :: c_ptr, c_double
+       import :: c_ptr, c_double, c_int
        real(c_double),   value   :: dt
        type(c_ptr),      value   :: gcm_forcings
        type(c_ptr),      value   :: issm_outputs
     end subroutine RunISSM
    
     subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
-       import :: c_ptr
+       import :: c_ptr, c_int
        type(c_ptr),      value   :: nodeIds
        type(c_ptr),      value   :: nodeCoords
     end subroutine GetNodesISSM
 
-    subroutine GetElementsISSM(elementIds, elementConn, elementCoords) bind(C,NAME="GetElementsISSM")
-       import :: c_ptr
+    subroutine GetElementsISSM(elementIds, elementConn, elementCoords, glacIds) bind(C,NAME="GetElementsISSM")
+       import :: c_ptr, c_int
        type(c_ptr),      value   :: elementIds
        type(c_ptr),      value   :: elementConn
        type(c_ptr),      value   :: elementCoords
+       type(c_ptr),      value   :: glacIds
     end subroutine GetElementsISSM
 
     subroutine FinalizeISSM() bind(C,NAME="FinalizeISSM")
@@ -87,6 +87,7 @@ program main
     integer                        :: rc
     type(ESMF_Mesh)                :: mesh
     integer                        :: sdim
+    integer, pointer, dimension(:) :: glacIds       => null()
     integer, pointer, dimension(:) :: elementIds    => null()
     integer, pointer, dimension(:) :: elementConn   => null()
     real(dp),pointer, dimension(:) :: elementCoords => null()
@@ -98,41 +99,30 @@ program main
     integer                        :: num_outputs = 3
 
 
-    dt = 0.05   ! timestep in years
+    ! stuff for file counting
+    character(len=256) :: EXPDIR
 
-    ! Get the environment variable ISSM_DIR
-    call get_environment_variable("ISSM_DIR", issm_path, length, status)
 
-    ! Manually set argc and argv
-    argc = 4  ! Example: 3 arguments
-    allocate(argv(argc))
-    argv(1) = "this arg does not matter"//c_null_char 
-    argv(2) = "TransientSolution"//c_null_char
-    argv(3) = trim(issm_path)//"/examples/GEOSInput"//c_null_char
-    argv(4) = "GreenlandGEOS"//c_null_char
-
-    ! Convert Fortran strings to C pointers (argv)
-    allocate(argv_ptr(argc))
-
-    do i = 1, argc
-        ! Ensure that we are only getting the memory address once per string
-        argv_ptr(i) = c_loc(argv(i))
-    end do
+    integer :: total_elements ! elements for all models (on each PET)
+    integer :: total_nodes ! elements for all models (on each PET)
+    
 
     ! initialize ESMF to and get vm info / comm for ISSM MPI
     call ESMF_Initialize(vm=vm, defaultlogfilename="VMDefaultBasicsEx.Log", logkindflag=ESMF_LOGKIND_MULTI, rc=rc)
 
     call ESMF_VMGet(vm,mpiCommunicator=comm,localPET=localPET,petCount=petCount,rc=rc)    
 
-    ! Call the C++ function for initializing ISSM
-    ! gets the number of elements and nodes of the mesh
-    call ESMF_VMBarrier(vm, rc=rc)
-    call InitializeISSM(argc, argv_ptr,num_elements,num_nodes,comm)
-    call ESMF_VMBarrier(vm, rc=rc)
 
-    ! ! print out some info if desired:
-    !print *, "number of elements on PET ", localPET, ": ", num_elements
-    !print *, "number of nodes on PET ", localPET, ": ", num_nodes
+    dt = 0.05   ! timestep in years
+
+    ! Get the environment variable ISSM_DIR
+    call get_environment_variable("ISSM_DIR", issm_path, length, status)
+
+    EXPDIR = trim(issm_path)//"/examples/GEOSInput"//c_null_char
+
+    call InitializeISSM(EXPDIR, num_elements, num_nodes, comm)
+
+    print *, "rank: ", localPET, " num_elements: ", num_elements
 
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
@@ -140,6 +130,7 @@ program main
     allocate(nodeOwners(num_nodes))
     allocate(elementTypes(num_elements))
     allocate(elementIds(num_elements))
+    allocate(glacIds(num_elements))
     allocate(elementConn(3*num_elements))
     allocate(elementCoords(2*num_elements))
     
@@ -156,7 +147,10 @@ program main
     ! create ESMF mesh corresponding to  ISSM mesh 
     ! get information about nodes and elements
     call GetNodesISSM(c_loc(nodeIds), c_loc(nodeCoords))
-    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords))
+
+    call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),c_loc(glacIds))
+
+    print *, "max elementIds: ", maxval(elementIds)
 
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
@@ -174,6 +168,7 @@ program main
         print *, "Succesfully created mesh"
         end if 
     end if
+
 
     call ESMF_VMBarrier(vm, rc=rc)
 
@@ -195,12 +190,10 @@ program main
     !call the C++ routine for running a single time step
     call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
 
-
     SurfaceOnElements(:) = issm_outputs(1:num_elements)
     ICEEL(:) = issm_outputs(1:num_elements)
     ICETHICK(:) = issm_outputs(num_elements+1:2*num_elements)
     ICEVEL(:) = issm_outputs(2*num_elements+1:3*num_elements)
-
  
     call ESMF_VMBarrier(vm, rc=rc)  
     srcField = ESMF_FieldCreate(mesh=mesh,farrayPtr=SurfaceOnElements,meshloc=ESMF_MESHLOC_ELEMENT, & 
