@@ -20,7 +20,7 @@ if not os.path.exists('./Models'):
 # Step 1: Mesh generation
 # Generate initial uniform mesh (resolution = 60000 m)
 # project mesh onto new coordinate system
-md = triangle(model(), '../Data/Ais.exp', 60000)
+md = triangle(model(), '../../test/Exp/Ais.exp', 60000)
 
 print('   Loading velocities data from NetCDF')
 nsidc_vel = Dataset('../Data/Antarctica_ice_velocity.nc')
