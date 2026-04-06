@@ -11,8 +11,8 @@
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
-const int ISSMOutputNumTerms = 3;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VelEnum };
+const int ISSMOutputNumTerms = 4;
+const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VxEnum,VyEnum};
 
 extern "C" {
 
@@ -93,9 +93,105 @@ extern "C" {
         *ptotal_nodes    = total_nodes;    // #nodes on process across all models
     }
 
+    void InputFromRestarts(IssmDouble* gcm_restarts){ /*{{{*/
+		/* Set inputs based on GEOS restarts. */
+        int local_size;
+        int global_size;
+        int shift;
+        int i0;
+
+        // get total number of elements across all models on this process
+        global_size = 0;
+        for (int id=0;id<N;id++){
+            local_size=femmodels[id]->elements->Size();
+            global_size += local_size;
+        }
+
+        shift = 0; // shift starting position of each model input
+        for (int id=0;id<N;id++){
+		
+		/*Figure out number of elements local to process: */
+		local_size=femmodels[id]->elements->Size();
+   
+		/* Set inputs based on gcm restart: {{{*/
+		for (int f=0;f<ISSMOutputNumTerms;f++){
+
+			int output_type=ISSMOutputTerms[f];
+
+			for (int i=0;i<local_size;i++){
+				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
+                i0 = i + shift;
+				switch(output_type){
+					case SurfaceEnum:
+						/*{{{*/
+						{
+
+                        /*Recover surface from the gcm restarts*/
+						IssmDouble surface_restart=*(gcm_restarts+f*global_size+i0); 
+
+						/*Add into the element :*/
+						element->AddInput(SurfaceEnum,&surface_restart,P0Enum);
+
+						}
+						/*}}}*/
+						break; 
+                    case ThicknessEnum:
+						/*{{{*/
+						{
+
+                        /*Recover thickness from the gcm restarts*/
+						IssmDouble thickness_restart=*(gcm_restarts+f*global_size+i0); 
+
+						/*Add into the element :*/
+						element->AddInput(ThicknessEnum,&thickness_restart,P0Enum);
+
+						}
+						/*}}}*/
+						break; 
+                    
+                    case VxEnum:
+						/*{{{*/
+						{
+
+                        /*Recover velocity (x direction) from the gcm restarts*/
+						IssmDouble vx_restart=*(gcm_restarts+f*global_size+i0); 
+
+						/*Add into the element :*/
+						element->AddInput(VxEnum,&vx_restart,P0Enum);
+
+						}
+						/*}}}*/
+						break; 
+
+                    case VyEnum:
+						/*{{{*/
+						{
+
+                        /*Recover velocity (y direction) from the gcm restarts*/
+						IssmDouble vy_restart=*(gcm_restarts+f*global_size+i0); 
+
+						/*Add into the element :*/
+						element->AddInput(VyEnum,&vy_restart,P0Enum);
+
+						}
+						/*}}}*/
+						break; 
+
+					default: 
+						{ _error_("Unknown restart type " << output_type << "\n"); }
+						break;
+				}
+			}
+		}
+
+        shift += local_size;
+        }
+		
+	} /*}}}*/
+
 	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
-		/* Run ISSM for one time step given GCM forcing. */
-        /* Time step is set by GCM.                      */
+		/* Run ISSM for one time step given GEOS forcing. */
+        /* Time step is set by GEOS.                      */
         /* Return a collection of ISSM outputs.          */
         int local_size;
         int global_size;
@@ -196,21 +292,38 @@ extern "C" {
 						/*}}}*/
 						break; 
 
-				case VelEnum:
+				case VxEnum:
 						/*{{{*/
 						{
 
-						IssmDouble vel;
+						IssmDouble vx;
 
-						/*Recover flow speed from the ISSM element: */
-						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
-						vel_input->GetInputAverage(&vel);
+						/*Recover velocity (x direction) from the ISSM element: */
+						Input* vx_input = element->GetInput(VxEnum); _assert_(vx_input);
+						vx_input->GetInputAverage(&vx);
 
-						*(issm_outputs+f*global_size+i0) = vel;
+						*(issm_outputs+f*global_size+i0) = vx;
 
 						}
 						/*}}}*/
 						break; 
+                
+                case VyEnum:
+						/*{{{*/
+						{
+
+						IssmDouble vy;
+
+						/*Recover velocity (y direction) from the ISSM element: */
+						Input* vy_input = element->GetInput(VyEnum); _assert_(vy_input);
+						vy_input->GetInputAverage(&vy);
+
+						*(issm_outputs+f*global_size+i0) = vy;
+
+						}
+						/*}}}*/
+						break; 
+
 
 					default: 
 						{ _error_("Unknown output type " << output_type << "\n"); }
