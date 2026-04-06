@@ -119,9 +119,8 @@ extern "C" {
         for (int id=0;id<N;id++){
 		
 		/*Figure out number of elements local to process: */
-		int local_size_vertices=femmodels[id]->vertices->Size();
+		//int local_size_vertices=femmodels[id]->vertices->Size();
 		int local_size_elements=femmodels[id]->elements->Size();
-
    
 		/* Set inputs based on gcm restart: {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
@@ -173,7 +172,7 @@ extern "C" {
 		}
 		//femmodels[id]->parameters->FindParam(&isgroundingline,TransientIsgroundinglineEnum);
 		//if(isgroundingline) femmodels[id]->AdjustBaseThicknessAndMask();
-        shift += local_size_vertices;
+        shift += local_size_elements;
         }
 		
 	} /*}}}*/
