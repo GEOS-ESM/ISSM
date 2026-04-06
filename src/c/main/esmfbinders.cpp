@@ -93,7 +93,7 @@ extern "C" {
         *ptotal_nodes    = total_nodes;    // #nodes on process across all models
     }
 
-    void InputFromRestarts(IssmDouble* gcm_restarts){ /*{{{*/
+    void InputFromRestarts(IssmDouble* gcm_restarts,int* elementConn){ /*{{{*/
 		/* Set inputs based on GEOS restarts. */
         int local_size;
         int global_size;
@@ -108,25 +108,27 @@ extern "C" {
 			}
 		}
 
-        // get total number of elements across all models on this process
+        // get total number of vertices across all models on this process
         global_size = 0;
         for (int id=0;id<N;id++){
-            local_size=femmodels[id]->elements->Size();
-            global_size += local_size;
+            int  local_size_vertices = femmodels[id]->vertices->Size(); 
+            global_size += local_size_vertices;
         }
 
         shift = 0; // shift starting position of each model input
         for (int id=0;id<N;id++){
 		
 		/*Figure out number of elements local to process: */
-		local_size=femmodels[id]->elements->Size();
+		int local_size_vertices=femmodels[id]->vertices->Size();
+		int local_size_elements=femmodels[id]->elements->Size();
+
    
 		/* Set inputs based on gcm restart: {{{*/
 		for (int f=0;f<ISSMOutputNumTerms;f++){
 
 			int output_type=ISSMOutputTerms[f];
 
-			for (int i=0;i<local_size;i++){
+			for (int i=0;i<local_size_elements;i++){
 				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
                 i0 = i + shift;
 				switch(output_type){
@@ -134,12 +136,17 @@ extern "C" {
 						/*{{{*/
 						{
 
-                        /*Recover surface from the gcm restarts*/
-						IssmDouble surface_restart=*(gcm_restarts+f*global_size+i0); 
+                        int numvertices = element->GetNumberOfVertices();
+	                    IssmDouble* surface_restart  = xNew<IssmDouble>(numvertices);   
+                        
+                        for(int iv=0;iv<numvertices;iv++){
+                           int lid = elementConn[i0*3+iv]-1; 
+                           surface_restart[iv] = gcm_restarts[lid+f*global_size]; 
+                        } 
 
 						/*Add into the element :*/
-						element->AddInput(SurfaceEnum,&surface_restart,P0Enum);
-
+						element->AddInput(SurfaceEnum,surface_restart,P1Enum);
+                        xDelete<IssmDouble>(surface_restart);
 						}
 						/*}}}*/
 						break; 
@@ -147,27 +154,26 @@ extern "C" {
 						/*{{{*/
 						{
 
-                        /*Recover thickness from the gcm restarts*/
-						IssmDouble thickness_restart=*(gcm_restarts+f*global_size+i0); 
+                        int numvertices = element->GetNumberOfVertices();
+	                    IssmDouble* thickness_restart  = xNew<IssmDouble>(numvertices);   
+                        
+                        for(int iv=0;iv<numvertices;iv++){
+                           int lid = elementConn[i0*3+iv]-1; 
+                           thickness_restart[iv] = gcm_restarts[lid+f*global_size]; 
+                        } 
 
 						/*Add into the element :*/
-						element->AddInput(ThicknessEnum,&thickness_restart,P0Enum);
-
-						/* update base for consistency: */
-						IssmDouble surface_restart=*(gcm_restarts+f0*global_size+i0); 
-						IssmDouble base_restart = surface_restart-thickness_restart;
-						/*Add into the element :*/
-						element->AddInput(BaseEnum,&base_restart,P0Enum);
-
+						element->AddInput(ThicknessEnum,thickness_restart,P1Enum);
+                        xDelete<IssmDouble>(thickness_restart);
 						}
 						/*}}}*/
 						break; 
 				}
 			}
 		}
-		femmodels[id]->parameters->FindParam(&isgroundingline,TransientIsgroundinglineEnum);
-		if(isgroundingline) femmodels[id]->AdjustBaseThicknessAndMask();
-        shift += local_size;
+		//femmodels[id]->parameters->FindParam(&isgroundingline,TransientIsgroundinglineEnum);
+		//if(isgroundingline) femmodels[id]->AdjustBaseThicknessAndMask();
+        shift += local_size_vertices;
         }
 		
 	} /*}}}*/
