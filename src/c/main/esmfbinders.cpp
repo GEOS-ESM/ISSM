@@ -11,8 +11,8 @@
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
-const int ISSMOutputNumTerms = 4;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VxEnum,VyEnum};
+const int ISSMOutputNumTerms = 3;
+const int ISSMOutputTerms[ISSMOutputNumTerms]= { SurfaceEnum, ThicknessEnum, VelEnum};
 
 extern "C" {
 
@@ -99,6 +99,14 @@ extern "C" {
         int global_size;
         int shift;
         int i0;
+		int f0;
+		bool isgroundingline;
+
+		for (int f = 0; f < ISSMOutputNumTerms; ++f) {
+			if (ISSMOutputTerms[f] == SurfaceEnum) {
+				f0 = f;
+			}
+		}
 
         // get total number of elements across all models on this process
         global_size = 0;
@@ -145,45 +153,20 @@ extern "C" {
 						/*Add into the element :*/
 						element->AddInput(ThicknessEnum,&thickness_restart,P0Enum);
 
-						}
-						/*}}}*/
-						break; 
-                    
-                    case VxEnum:
-						/*{{{*/
-						{
-
-                        /*Recover velocity (x direction) from the gcm restarts*/
-						IssmDouble vx_restart=*(gcm_restarts+f*global_size+i0); 
-
+						/* update base for consistency: */
+						IssmDouble surface_restart=*(gcm_restarts+f0*global_size+i0); 
+						IssmDouble base_restart = surface_restart-thickness_restart;
 						/*Add into the element :*/
-						element->AddInput(VxEnum,&vx_restart,P0Enum);
+						element->AddInput(BaseEnum,&base_restart,P0Enum);
 
 						}
 						/*}}}*/
 						break; 
-
-                    case VyEnum:
-						/*{{{*/
-						{
-
-                        /*Recover velocity (y direction) from the gcm restarts*/
-						IssmDouble vy_restart=*(gcm_restarts+f*global_size+i0); 
-
-						/*Add into the element :*/
-						element->AddInput(VyEnum,&vy_restart,P0Enum);
-
-						}
-						/*}}}*/
-						break; 
-
-					default: 
-						{ _error_("Unknown restart type " << output_type << "\n"); }
-						break;
 				}
 			}
 		}
-
+		femmodels[id]->parameters->FindParam(&isgroundingline,TransientIsgroundinglineEnum);
+		if(isgroundingline) femmodels[id]->AdjustBaseThicknessAndMask();
         shift += local_size;
         }
 		
@@ -292,42 +275,26 @@ extern "C" {
 						/*}}}*/
 						break; 
 
-				case VxEnum:
+				case VelEnum:
 						/*{{{*/
 						{
 
-						IssmDouble vx;
+						IssmDouble vel;
 
-						/*Recover velocity (x direction) from the ISSM element: */
-						Input* vx_input = element->GetInput(VxEnum); _assert_(vx_input);
-						vx_input->GetInputAverage(&vx);
+						/*Recover ice flow speed from the ISSM element: */
+						Input* vel_input = element->GetInput(VelEnum); _assert_(vel_input);
+						vel_input->GetInputAverage(&vel);
 
-						*(issm_outputs+f*global_size+i0) = vx;
-
-						}
-						/*}}}*/
-						break; 
-                
-                case VyEnum:
-						/*{{{*/
-						{
-
-						IssmDouble vy;
-
-						/*Recover velocity (y direction) from the ISSM element: */
-						Input* vy_input = element->GetInput(VyEnum); _assert_(vy_input);
-						vy_input->GetInputAverage(&vy);
-
-						*(issm_outputs+f*global_size+i0) = vy;
+						*(issm_outputs+f*global_size+i0) = vel;
 
 						}
 						/*}}}*/
 						break; 
 
 
-					default: 
-						{ _error_("Unknown output type " << output_type << "\n"); }
-						break;
+				default: 
+					{ _error_("Unknown output type " << output_type << "\n"); }
+					break;
 				}
 			}
 		}
