@@ -309,8 +309,6 @@ program main
 
     print *, "regrid with new field worked"
 
-    STOP
-
     !print *, "smb regridded: ", smb_nodes
 
 !-------------------------------------------------------------
