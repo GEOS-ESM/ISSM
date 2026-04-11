@@ -426,6 +426,8 @@ extern "C" {
 	void FinalizeISSM(){ /*{{{*/
         // wrap up
         for (int i = 0; i < N; ++i) {
+            /*Output results: .outbin file for each model */
+			OutputResultsx(femmodels[i]);
 			delete femmodels[i];
 			femmodels[i]=NULL;
         }
