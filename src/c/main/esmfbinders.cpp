@@ -95,7 +95,6 @@ extern "C" {
 
     void InputFromRestarts(IssmDouble* gcm_restarts,int* elementConn){ /*{{{*/
 		/* Set inputs based on GEOS restarts. */
-        int local_size;
         int global_size;
         int shift;
         int i0;
