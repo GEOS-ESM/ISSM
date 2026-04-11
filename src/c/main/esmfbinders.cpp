@@ -120,7 +120,6 @@ extern "C" {
         for (int id=0;id<N;id++){
 		
 		/*Figure out number of elements local to process: */
-		//int local_size_vertices=femmodels[id]->vertices->Size();
 		int local_size_elements=femmodels[id]->elements->Size();
    
 		/* Set inputs based on gcm restart: {{{*/
@@ -427,8 +426,6 @@ extern "C" {
 	void FinalizeISSM(){ /*{{{*/
         // wrap up
         for (int i = 0; i < N; ++i) {
-		/*Output results: .outbin file for each model */
-			OutputResultsx(femmodels[i]);	
 			delete femmodels[i];
 			femmodels[i]=NULL;
         }
