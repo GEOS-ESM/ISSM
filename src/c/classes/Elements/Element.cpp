@@ -22,6 +22,10 @@
 #include "../Inputs/ControlInput.h"
 #include "../Inputs/ArrayInput.h"
 #include "../Inputs/IntArrayInput.h"
+#ifdef _HAVE_PyBind11_
+   #include <pybind11/numpy.h>
+   namespace py=pybind11;
+#endif
 /*}}}*/
 #define MAXVERTICES 6 /*Maximum number of vertices per element, currently Penta, to avoid dynamic mem allocation*/
 
@@ -56,6 +60,14 @@ Element::Element(){/*{{{*/
 	this->material   = NULL;
 	this->parameters = NULL;
 	this->element_type_list=NULL;
+	#ifdef _HAVE_PyBind11_
+	if (0) {
+     Param* emulator_param = this->parameters->FindParamObject(SmbEmulatorEnum);
+	  if(emulator_param->ObjectEnum()!=EmulatorParamEnum) _error_("Parameter should be EmulatorParam");
+	  this->smbemulator = xDynamicCast<EmulatorParam*>(emulator_param);
+	}
+	this->smbemulator = NULL;
+	#endif
 }/*}}}*/
 Element::~Element(){/*{{{*/
 	xDelete<int>(element_type_list);
@@ -2508,6 +2520,7 @@ void       Element::Ismip7FloatingiceMeltingRate(){/*{{{*/
 	if(!this->IsIceInElement() || !this->IsAllFloating() || !this->IsOnBase()) return;
 
 	int         basinid,num_basins,M,N;
+	IssmDouble  delta_t_basin;
 	IssmDouble* xyz_list;
 	
 	IssmDouble  tf,gamma0;
@@ -2515,6 +2528,7 @@ void       Element::Ismip7FloatingiceMeltingRate(){/*{{{*/
 	IssmDouble  coriolis; /*Coriolis parameter*/
 	IssmDouble  dbase[2]; /*derivative of z_b*/
 	IssmDouble  theta, slope;
+	IssmDouble* delta_t = NULL;
 	IssmDouble* depths  = NULL;
 	
 
@@ -2533,12 +2547,17 @@ void       Element::Ismip7FloatingiceMeltingRate(){/*{{{*/
 	IssmDouble g   = this->FindParam(ConstantsGEnum);
 
 	/* Get parameters and inputs */
+	this->GetInputValue(&basinid,BasalforcingsIsmip7BasinIdEnum);
+	this->parameters->FindParam(&num_basins,BasalforcingsIsmip7NumBasinsEnum);
+	this->parameters->FindParam(&delta_t,&M,BasalforcingsIsmip7DeltaTEnum);    _assert_(M==num_basins);
 	this->parameters->FindParam(&gamma0,BasalforcingsIsmip7GammaEnum);
 	
 	Input* base_input = this->GetInput(BaseEnum); _assert_(base_input);
 	Input* tf_input   = this->GetInput(BasalforcingsIsmip7TfShelfEnum); _assert_(tf_input);
 	Input* salinity_input = this->GetInput(BasalforcingsIsmip7SalinityShelfEnum); _assert_(salinity_input);
 	Input* coriolis_input = this->GetInput(BasalforcingsCoriolisFEnum); _assert_(coriolis_input);
+
+	delta_t_basin = delta_t[basinid];
 	
 	/*Compute melt rate for Local and Nonlocal parameterizations*/
 	Gauss* gauss=this->NewGauss();
@@ -2553,7 +2572,7 @@ void       Element::Ismip7FloatingiceMeltingRate(){/*{{{*/
 		slope = sqrt(pow(dbase[0],2)+pow(dbase[1],2));
 		theta = atan(slope);
 
-		basalmeltrate[i] = gamma0*sin(theta)*(rhow/rhoi)*pow(cp/lf,2)*betaS*salinity*g/2.0/fabs(coriolis)*fabs(tf)*tf;
+		basalmeltrate[i] = gamma0*sin(theta)*(rhow/rhoi)*pow(cp/lf,2)*betaS*salinity*g/2.0/fabs(coriolis)*fabs(tf+delta_t_basin)*(tf+delta_t_basin);
 	}
 
 	/*Return basal melt rate*/
@@ -2562,7 +2581,7 @@ void       Element::Ismip7FloatingiceMeltingRate(){/*{{{*/
 	/*Cleanup and return*/
 	delete gauss;
 	xDelete<IssmDouble>(depths);
-
+	xDelete<IssmDouble>(delta_t);
 }/*}}}*/
 void       Element::LapseRateBasinSMB(int numelevbins, IssmDouble* lapserates, IssmDouble* elevbins,IssmDouble* refelevation){/*{{{*/
 
@@ -4198,6 +4217,74 @@ void       Element::PositiveDegreeDayGCM(){/*{{{*/
 	delete gauss;
 }
 /*}}}*/
+#if _HAVE_PyBind11_
+void       Element::SmbEmulator(IssmDouble timeinputs){/*{{{*/
+	
+	int numvertices = this->GetNumberOfVertices();
+	IssmDouble* al  = xNew<IssmDouble>(numvertices);
+	IssmDouble* st  = xNew<IssmDouble>(numvertices);
+	IssmDouble* tt  = xNew<IssmDouble>(numvertices);
+	IssmDouble* lwd = xNew<IssmDouble>(numvertices);
+	IssmDouble* smb = xNew<IssmDouble>(numvertices);
+
+	Input* al_input  = this->GetInput(SmbAlEnum,timeinputs);  _assert_(al_input);
+	Input* st_input  = this->GetInput(SmbStEnum,timeinputs);  _assert_(st_input);
+	Input* tt_input  = this->GetInput(SmbTtEnum,timeinputs);  _assert_(tt_input);
+	Input* lwd_input = this->GetInput(SmbLwdEnum,timeinputs); _assert_(lwd_input);
+
+	this->GetInputListOnVertices(al,al_input,0.);
+	this->GetInputListOnVertices(st,st_input,0.);
+	this->GetInputListOnVertices(tt,tt_input,0.);
+	this->GetInputListOnVertices(lwd,lwd_input,0.);
+
+	try{
+		py::gil_scoped_acquire gil;
+
+		py::array_t<double> al_np(numvertices);
+		py::array_t<double> st_np(numvertices);
+		py::array_t<double> tt_np(numvertices);
+		py::array_t<double> lwd_np(numvertices);
+
+		auto al_view  = al_np.mutable_unchecked<1>();
+		auto st_view  = st_np.mutable_unchecked<1>();
+		auto tt_view  = tt_np.mutable_unchecked<1>();
+		auto lwd_view = lwd_np.mutable_unchecked<1>();
+
+		for(int iv=0;iv<numvertices;iv++){
+			al_view(iv)  = static_cast<double>(al[iv]);
+			st_view(iv)  = static_cast<double>(st[iv]);
+			tt_view(iv)  = static_cast<double>(tt[iv]);
+			lwd_view(iv) = static_cast<double>(lwd[iv]);
+		}
+
+		/*TODO: finalize the Python SMB emulator signature. This placeholder matches
+		 * the current minimum variable set requested for the SMB emulator path.*/
+		py::object pred_obj = this->smbemulator->mod.attr("predict_smb_np")(al_np, st_np, tt_np, lwd_np, py::arg("dtype") = "float64");
+		py::array_t<double, py::array::c_style | py::array::forcecast> pred(pred_obj);
+		auto pred_view = pred.unchecked<1>();
+		_assert_(pred.shape(0)==numvertices);
+
+		for(int iv=0;iv<numvertices;iv++){
+			smb[iv] = static_cast<IssmDouble>(pred_view(iv));
+		}
+	}
+	catch(const py::error_already_set& e){
+		_error_(std::string("Python SMB emulator inference failed: ") + e.what());
+	}
+	catch(const std::exception& e){
+		_error_(std::string("SMB emulator inference failed: ") + e.what());
+	}
+
+	this->AddInput(SmbMassBalanceEnum,smb,P1Enum);
+
+	xDelete<IssmDouble>(al);
+	xDelete<IssmDouble>(st);
+	xDelete<IssmDouble>(tt);
+	xDelete<IssmDouble>(lwd);
+	xDelete<IssmDouble>(smb);
+} 
+/*}}}*/
+#endif
 void       Element::ProjectGridDataToMesh(IssmDouble* griddata,IssmDouble* x_grid,IssmDouble* y_grid,int Nx,int Ny,int input_enum){/*{{{*/
 
 	const int NUM_VERTICES 	= this->GetNumberOfVertices();

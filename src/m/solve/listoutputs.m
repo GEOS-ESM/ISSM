@@ -51,6 +51,7 @@ BasalforcingsIsmip6BasinId
 BasalforcingsIsmip6Tf
 BasalforcingsIsmip6TfShelf
 BasalforcingsIsmip6MeltAnomaly
+BasalforcingsIsmip7BasinId
 BasalforcingsIsmip7Tf
 BasalforcingsIsmip7TfShelf
 BasalforcingsIsmip7Salinity
@@ -535,6 +536,16 @@ SmbZMax
 SmbZMin
 SmbZTop
 SmbZY
+SmbElev
+SmbAl
+SmbSt
+SmbTt
+SmbSwd
+SmbLwd
+SmbSwu
+SmbLwu
+SmbShf
+SmbLhf
 SolidearthExternalDisplacementEastRate
 SolidearthExternalDisplacementNorthRate
 SolidearthExternalDisplacementUpRate

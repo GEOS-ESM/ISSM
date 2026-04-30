@@ -78,6 +78,7 @@ syn keyword juliaConstC BasalforcingsIsmip6Gamma0Enum
 syn keyword juliaConstC BasalforcingsIsmip6IsLocalEnum
 syn keyword juliaConstC BasalforcingsIsmip6NumBasinsEnum
 syn keyword juliaConstC BasalforcingsIsmip6TfDepthsEnum
+syn keyword juliaConstC BasalforcingsIsmip7DeltaTEnum
 syn keyword juliaConstC BasalforcingsIsmip7TfDepthsEnum
 syn keyword juliaConstC BasalforcingsIsmip7NumBasinsEnum
 syn keyword juliaConstC BasalforcingsIsmip7GammaEnum
@@ -748,6 +749,8 @@ syn keyword juliaConstC YyeEnum
 syn keyword juliaConstC ZzeEnum
 syn keyword juliaConstC AreaeEnum
 syn keyword juliaConstC WorldCommEnum
+syn keyword juliaConstC FrictionEmulatorEnum
+syn keyword juliaConstC SmbEmulatorEnum
 syn keyword juliaConstC ParametersENDEnum
 syn keyword juliaConstC InputsSTARTEnum
 syn keyword juliaConstC AccumulatedDeltaBottomPressureEnum
@@ -791,6 +794,7 @@ syn keyword juliaConstC BasalforcingsIsmip6BasinIdEnum
 syn keyword juliaConstC BasalforcingsIsmip6TfEnum
 syn keyword juliaConstC BasalforcingsIsmip6TfShelfEnum
 syn keyword juliaConstC BasalforcingsIsmip6MeltAnomalyEnum
+syn keyword juliaConstC BasalforcingsIsmip7BasinIdEnum
 syn keyword juliaConstC BasalforcingsIsmip7TfEnum
 syn keyword juliaConstC BasalforcingsIsmip7TfShelfEnum
 syn keyword juliaConstC BasalforcingsIsmip7SalinityEnum
@@ -1275,6 +1279,16 @@ syn keyword juliaConstC SmbZMaxEnum
 syn keyword juliaConstC SmbZMinEnum
 syn keyword juliaConstC SmbZTopEnum
 syn keyword juliaConstC SmbZYEnum
+syn keyword juliaConstC SmbElevEnum
+syn keyword juliaConstC SmbAlEnum
+syn keyword juliaConstC SmbStEnum
+syn keyword juliaConstC SmbTtEnum
+syn keyword juliaConstC SmbSwdEnum
+syn keyword juliaConstC SmbLwdEnum
+syn keyword juliaConstC SmbSwuEnum
+syn keyword juliaConstC SmbLwuEnum
+syn keyword juliaConstC SmbShfEnum
+syn keyword juliaConstC SmbLhfEnum
 syn keyword juliaConstC SolidearthExternalDisplacementEastRateEnum
 syn keyword juliaConstC SolidearthExternalDisplacementNorthRateEnum
 syn keyword juliaConstC SolidearthExternalDisplacementUpRateEnum
@@ -3698,6 +3712,7 @@ syn keyword juliaConstC SMBpddSicopolisEnum
 syn keyword juliaConstC SMBpddGCMEnum
 syn keyword juliaConstC SMBpddFastEnum
 syn keyword juliaConstC SMBsemicEnum
+syn keyword juliaConstC SMBmariaEnum
 syn keyword juliaConstC SSAApproximationEnum
 syn keyword juliaConstC SSAFSApproximationEnum
 syn keyword juliaConstC SSAHOApproximationEnum
