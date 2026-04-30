@@ -1,4 +1,4 @@
-/*!\file:  esmfbinder.cpp
+/*!\file:  esmfbinders.cpp
  * \brief: Binders developed for NASA's GEOS Earth System Model.
  */ 
 
@@ -12,25 +12,21 @@
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
 const int ISSMOutputNumTerms = 6;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= {SurfaceEnum, ThicknessEnum, VxEnum, VyEnum, MaskOceanLevelsetEnum,MaskIceLevelsetEnum};
+const int ISSMOutputTerms[ISSMOutputNumTerms]= {SurfaceEnum,ThicknessEnum,VxEnum,VyEnum,MaskOceanLevelsetEnum,MaskIceLevelsetEnum};
 
 extern "C" {
 
+	static int N = 0;                      // total number of input files (glaciers)
+    static int total_nodes=0;              // total number of vertices across models on each process
+    static FemModel** femmodels = nullptr; // container for all FemModel objects
 
-	static int N = 0; // total number of input files (glaciers)
-    static FemModel** femmodels = nullptr; //container for all FemModel objects
-
-    void InitializeISSM(const char* EXPDIR,
-                        int* ptotal_elements,
-                        int* ptotal_nodes,
-                        MPI_Fint* Fcomm)
-    {
+    void InitializeISSM(const char* EXPDIR, int* ptotal_elements, int* ptotal_nodes, MPI_Fint* Fcomm){
         /*  Determine number of input (.bin) files and create a FemModel */
         /*  for each one. Return total number of elements and nodes per  */
         /*  process across all models                                    */
         
         int total_elements = 0; // #elements on process across all models
-        int total_nodes    = 0; // #nodes on process across all models
+        total_nodes=0;          // #vertices on process across all models (static)
     
         /* Convert Fortran MPI comm to C MPI comm */
         MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);
@@ -93,13 +89,9 @@ extern "C" {
         *ptotal_nodes    = total_nodes;    // #nodes on process across all models
     }
 
-    void InputFromRestarts(IssmDouble* gcm_restarts,int* elementConn){ /*{{{*/
+    void InputFromRestarts(IssmDouble* gcm_restarts){ /*{{{*/
 		/* Set inputs based on GEOS restarts. */
-        int global_size;
-        int shift;
-        int i0;
-		int f0;
-		bool isgroundingline;
+        int local_size_elements,local_size_vertices,shift_local_vertices,numvertices,f0,lid;
 
         // get index for surface elevation restart for convenience
 		for (int f = 0; f < ISSMOutputNumTerms; ++f) {
@@ -108,318 +100,297 @@ extern "C" {
 			}
 		}
 
-        // get total number of vertices across all models on this process
-        global_size = 0;
+        // shift starting position of each model input:
+        shift_local_vertices = 0; 
+        
         for (int id=0;id<N;id++){
-            int  local_size_vertices = femmodels[id]->vertices->Size(); 
-            global_size += local_size_vertices;
-        }
+    		/*Figure out number of elements and vertices local to process: */
+            local_size_vertices=femmodels[id]->vertices->Size();
+            local_size_elements=femmodels[id]->elements->Size();
+       
+    		/* Set inputs based on gcm restart: {{{*/
+    		for (int f=0;f<ISSMOutputNumTerms;f++){
+    			int output_type=ISSMOutputTerms[f];
+    
+    			for (int i=0;i<local_size_elements;i++){
+    				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
 
-        shift = 0; // shift starting position of each model input
-        for (int id=0;id<N;id++){
-		
-		/*Figure out number of elements local to process: */
-		int local_size_elements=femmodels[id]->elements->Size();
-   
-		/* Set inputs based on gcm restart: {{{*/
-		for (int f=0;f<ISSMOutputNumTerms;f++){
-
-			int output_type=ISSMOutputTerms[f];
-
-			for (int i=0;i<local_size_elements;i++){
-				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-                i0 = i + shift;
-				switch(output_type){
-					case SurfaceEnum:
-						/*{{{*/
-						{
-                        // set ice surface elevation restart provided by GEOS
-                        int numvertices = element->GetNumberOfVertices();
-	                    IssmDouble* surface_restart  = xNew<IssmDouble>(numvertices);   
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                           int lid = elementConn[i0*3+iv]-1; 
-                           surface_restart[iv] = gcm_restarts[lid+f*global_size]; 
-                        } 
-
-						/*Add into the element :*/
-						element->AddInput(SurfaceEnum,surface_restart,P1Enum);
-                        xDelete<IssmDouble>(surface_restart);
-						}
-						/*}}}*/
-						break; 
-                    case ThicknessEnum:
-						/*{{{*/
-						{
-                        // set ice thickness restart provided by GEOS    
-                        // also set base elevation restart for consistency    
-                        IssmDouble surface_restart_iv;
-                        int numvertices = element->GetNumberOfVertices();
-	                    IssmDouble* thickness_restart  = xNew<IssmDouble>(numvertices);
-	                    IssmDouble* base_restart  = xNew<IssmDouble>(numvertices);   
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                           int lid = elementConn[i0*3+iv]-1; 
-                           surface_restart_iv = gcm_restarts[lid+f0*global_size];
-                           thickness_restart[iv] = gcm_restarts[lid+f*global_size]; 
-                           base_restart[iv] = surface_restart_iv-thickness_restart[iv]; 
-                        } 
-
-						/*Add into the element :*/
-						element->AddInput(ThicknessEnum,thickness_restart,P1Enum);
-						element->AddInput(BaseEnum,base_restart,P1Enum);
-                        xDelete<IssmDouble>(thickness_restart);
-                        xDelete<IssmDouble>(base_restart);       
-						}
-						/*}}}*/
-						break; 
-                    case MaskOceanLevelsetEnum:
-						/*{{{*/
-						{
-                        // set ocean mask restart provided by GEOS 
-                        int numvertices = element->GetNumberOfVertices();
-	                    IssmDouble* oceanmask_restart  = xNew<IssmDouble>(numvertices);   
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                           int lid = elementConn[i0*3+iv]-1; 
-                           oceanmask_restart[iv] = gcm_restarts[lid+f*global_size]; 
-                        } 
-
-						/*Add into the element :*/
-						element->AddInput(MaskOceanLevelsetEnum,oceanmask_restart,P1Enum);
-                        xDelete<IssmDouble>(oceanmask_restart);
-						}
-						/*}}}*/
-						break; 
-                    case MaskIceLevelsetEnum:
-						/*{{{*/
-						{
-                        // set ice mask restart provided by GEOS 
-                        int numvertices = element->GetNumberOfVertices();
-	                    IssmDouble* icemask_restart  = xNew<IssmDouble>(numvertices);   
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                           int lid = elementConn[i0*3+iv]-1; 
-                           icemask_restart[iv] = gcm_restarts[lid+f*global_size]; 
-                        } 
-
-						/*Add into the element :*/
-						element->AddInput(MaskIceLevelsetEnum,icemask_restart,P1Enum);
-                        xDelete<IssmDouble>(icemask_restart);
-						}
-						/*}}}*/
-						break; 
-				}
-			}
-		}
-        shift += local_size_elements;
+    				switch(output_type){
+    					case SurfaceEnum:
+    						/*{{{*/
+    						{
+                            // set ice surface elevation restart provided by GEOS
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* surface_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               surface_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(SurfaceEnum,surface_restart,P1Enum);
+                            xDelete<IssmDouble>(surface_restart);
+    						}
+    						/*}}}*/
+    						break; 
+                        case ThicknessEnum:
+    						/*{{{*/
+    						{
+                            // set ice thickness restart provided by GEOS    
+                            // also set base elevation restart for consistency    
+                            IssmDouble surface_restart_iv;
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* thickness_restart  = xNew<IssmDouble>(numvertices);
+    	                    IssmDouble* base_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               surface_restart_iv = gcm_restarts[lid+f0*total_nodes];
+                               thickness_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                               base_restart[iv] = surface_restart_iv-thickness_restart[iv]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(ThicknessEnum,thickness_restart,P1Enum);
+    						element->AddInput(BaseEnum,base_restart,P1Enum);
+                            xDelete<IssmDouble>(thickness_restart);
+                            xDelete<IssmDouble>(base_restart);       
+    						}
+    						/*}}}*/
+    						break; 
+                        case MaskOceanLevelsetEnum:
+    						/*{{{*/
+    						{
+                            // set ocean mask restart provided by GEOS 
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* oceanmask_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               oceanmask_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(MaskOceanLevelsetEnum,oceanmask_restart,P1Enum);
+                            xDelete<IssmDouble>(oceanmask_restart);
+    						}
+    						/*}}}*/
+    						break; 
+                        case MaskIceLevelsetEnum:
+    						/*{{{*/
+    						{
+                            // set ice mask restart provided by GEOS 
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* icemask_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               icemask_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(MaskIceLevelsetEnum,icemask_restart,P1Enum);
+                            xDelete<IssmDouble>(icemask_restart);
+    						}
+    						/*}}}*/
+    						break; 
+    				}
+    			}
+    		}
+            // shift starting index for next model inputs
+            shift_local_vertices += local_size_vertices;    
         }
 		
 	} /*}}}*/
 
-	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs,int* elementConn){ /*{{{*/
+	void RunISSM(IssmDouble dt, IssmDouble* gcm_forcings, IssmDouble* issm_outputs){ /*{{{*/
 		/* Run ISSM for one time step given GEOS forcing. */
         /* Time step is set by GEOS.                      */
         /* Return a collection of ISSM outputs.          */
-        int local_size_elements;
-        int local_size_vertices;
-        int global_size;
+        int local_size_elements,local_size_vertices,shift_local_vertices,numvertices,lid;
 		IssmDouble start_time,final_time;
-        int shift;
-        int i0;
-
-        // get total number of vertices across all models on this process
-        global_size = 0;
+  
+         // shift starting position of each model input:
+        shift_local_vertices = 0; 
+        
         for (int id=0;id<N;id++){
-            local_size_vertices = femmodels[id]->vertices->Size(); 
-            global_size += local_size_vertices;
-        }
-
-        shift = 0; // shift starting position of each model input
-        for (int id=0;id<N;id++){
-		
-		/*Figure out number of elements local to process: */
-		local_size_elements=femmodels[id]->elements->Size();
-
-		/*Setup GCM forcings as element-wise input: {{{ */
-		for (int f=0;f<GCMForcingNumTerms;f++){
-
-			int forcing_type=GCMForcingTerms[f];
-
-			for (int i=0;i<local_size_elements;i++){
-				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-
-                i0 = i + shift;
+    		/*Figure out number of elements and vertices local to process: */
+    		local_size_vertices=femmodels[id]->vertices->Size();
+            local_size_elements=femmodels[id]->elements->Size();
                 
-				switch(forcing_type){
-					case SMBgcmEnum:
-						/*{{{*/
-						{
-                        int numvertices = element->GetNumberOfVertices();
-	                    IssmDouble* smb_forcing  = xNew<IssmDouble>(numvertices);   
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                           int lid = elementConn[i0*3+iv]-1; 
-                           smb_forcing[iv] = gcm_forcings[lid+f*global_size]; 
-                        } 
+    		/*Setup GCM forcings as element-wise input: {{{ */
+    		for (int f=0;f<GCMForcingNumTerms;f++){
+    			int forcing_type=GCMForcingTerms[f];
+    
+    			for (int i=0;i<local_size_elements;i++){
+    				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
+                    
+    				switch(forcing_type){
+    					case SMBgcmEnum:
+    						/*{{{*/
+    						{
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* smb_forcing  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               smb_forcing[iv] = gcm_forcings[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(SmbMassBalanceEnum,smb_forcing,P1Enum);
+                            xDelete<IssmDouble>(smb_forcing);         
+    						}
+    						/*}}}*/
+    						break; 
+    					default: 
+    						{ _error_("Unknown forcing type " << forcing_type << "\n"); }
+    						break;
+    				}
+    			}
+    		}
+    
+    		/*}}}*/
+    
+    		/*Before running, set the time interval to one time step: */
+    		femmodels[id]->parameters->FindParam(&start_time,TimeEnum);
+    		final_time=start_time+dt;
+    		femmodels[id]->parameters->SetParam(final_time,TimesteppingFinalTimeEnum);
+    
+    		/*Now, run: */
+    		femmodels[id]->Solve();
+    
+    		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
+    		for (int f=0;f<ISSMOutputNumTerms;f++){
+    
+    			int output_type=ISSMOutputTerms[f];
+    
+    			for (int i=0;i<local_size_elements;i++){
+    				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
 
-						/*Add into the element :*/
-						element->AddInput(SmbMassBalanceEnum,smb_forcing,P1Enum);
-                        xDelete<IssmDouble>(smb_forcing);         
-						}
-						/*}}}*/
-						break; 
-					default: 
-						{ _error_("Unknown forcing type " << forcing_type << "\n"); }
-						break;
-				}
-			}
-		}
-
-		/*}}}*/
-
-		/*Before running, set the time interval to one time step: */
-		femmodels[id]->parameters->FindParam(&start_time,TimeEnum);
-		final_time=start_time+dt;
-		femmodels[id]->parameters->SetParam(final_time,TimesteppingFinalTimeEnum);
-
-		/*Now, run: */
-		femmodels[id]->Solve();
-
-		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
-		for (int f=0;f<ISSMOutputNumTerms;f++){
-
-			int output_type=ISSMOutputTerms[f];
-
-			for (int i=0;i<local_size_elements;i++){
-				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
-                i0 = i + shift;
-				switch(output_type){
-					case SurfaceEnum:
-						/*{{{*/
-						{
-						IssmDouble surface;
-						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            surface_input->GetInputValue(&surface,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = surface;
-                        }       
-                        delete gauss;
-						}
-						/*}}}*/
-						break; 
-				case ThicknessEnum:
-						/*{{{*/
-						{
-            			IssmDouble thickness;
-						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            thickness_input->GetInputValue(&thickness,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = thickness;
-                        }     
-                        delete gauss; 
-						}
-						/*}}}*/
-						break; 
-
-				case VxEnum:
-						/*{{{*/
-						{
-            			IssmDouble vx;
-						Input* vx_input = element->GetInput(VxEnum); _assert_(vx_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            vx_input->GetInputValue(&vx,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = vx;
-                        }     
-                        delete gauss;   
-						}
-						/*}}}*/
-						break; 
-                case VyEnum:
-						/*{{{*/
-						{
-            			IssmDouble vy;
-						Input* vy_input = element->GetInput(VyEnum); _assert_(vy_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            vy_input->GetInputValue(&vy,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = vy;
-                        }     
-                        delete gauss;   
-						}
-						/*}}}*/
-						break; 
-                case MaskOceanLevelsetEnum:
-						/*{{{*/
-						{
-            			IssmDouble oceanmask;
-						Input* oceanmask_input = element->GetInput(MaskOceanLevelsetEnum); _assert_(oceanmask_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            oceanmask_input->GetInputValue(&oceanmask,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = oceanmask;
-                        }     
-                        delete gauss;   
-						}
-						/*}}}*/
-						break; 
-                case MaskIceLevelsetEnum:
-						/*{{{*/
-						{
-            			IssmDouble icemask;
-						Input* icemask_input = element->GetInput(MaskIceLevelsetEnum); _assert_(icemask_input);
-                        Gauss* gauss=element->NewGauss();                        
-                        int numvertices = element->GetNumberOfVertices();
-                        
-                        for(int iv=0;iv<numvertices;iv++){
-                            gauss->GaussVertex(iv);
-                            icemask_input->GetInputValue(&icemask,gauss);
-                            int lid = elementConn[i0*3+iv]-1; 
-                            issm_outputs[lid+f*global_size] = icemask;
-                        }     
-                        delete gauss;   
-						}
-						/*}}}*/
-						break; 
-
-
-				default: 
-					{ _error_("Unknown output type " << output_type << "\n"); }
-					break;
-				}
-			}
-		}
-
-		/*For the next time around, save the final time as start time */
-		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
-
-        // shift starting index for next model inputs/outputs
-        shift += local_size_elements;
+    				switch(output_type){
+    					case SurfaceEnum:
+    						/*{{{*/
+    						{
+    						IssmDouble surface;
+    						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                surface_input->GetInputValue(&surface,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = surface;
+                            }       
+                            delete gauss;
+    						}
+    						/*}}}*/
+    						break; 
+    				case ThicknessEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble thickness;
+    						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                thickness_input->GetInputValue(&thickness,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = thickness;
+                            }     
+                            delete gauss; 
+    						}
+    						/*}}}*/
+    						break; 
+    
+    				case VxEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble vx;
+    						Input* vx_input = element->GetInput(VxEnum); _assert_(vx_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                vx_input->GetInputValue(&vx,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = vx;
+                            }     
+                            delete gauss;   
+    						}
+    						/*}}}*/
+    						break; 
+                    case VyEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble vy;
+    						Input* vy_input = element->GetInput(VyEnum); _assert_(vy_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                vy_input->GetInputValue(&vy,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = vy;
+                            }     
+                            delete gauss;   
+    						}
+    						/*}}}*/
+    						break; 
+                    case MaskOceanLevelsetEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble oceanmask;
+    						Input* oceanmask_input = element->GetInput(MaskOceanLevelsetEnum); _assert_(oceanmask_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                oceanmask_input->GetInputValue(&oceanmask,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = oceanmask;
+                            }     
+                            delete gauss;   
+    						}
+    						/*}}}*/
+    						break; 
+                    case MaskIceLevelsetEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble icemask;
+    						Input* icemask_input = element->GetInput(MaskIceLevelsetEnum); _assert_(icemask_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                icemask_input->GetInputValue(&icemask,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = icemask;
+                            }     
+                            delete gauss;   
+    						}
+    						/*}}}*/
+    						break; 
+    				default: 
+    					{ _error_("Unknown output type " << output_type << "\n"); }
+    					break;
+    				}
+    			}
+    		}
+    		/*For the next time around, save the final time as start time */
+    		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
+    
+            // shift starting index for next model inputs/outputs
+            shift_local_vertices += local_size_vertices;
         }
-		
 	} /*}}}*/
 
 	void FinalizeISSM(){ /*{{{*/
@@ -437,27 +408,26 @@ extern "C" {
         /*obtain nodes of mesh for creating ESMF version in Fortran interface */
         /*nodeIds are the global Id's of the nodes and nodeCoords are the     */
         /*(lon,lat) coordinates, as described in the ESMF reference document  */
-        int shift_global=0;
-        int shift_local=0;
+        int shift_global_vertices=0;
+        int shift_local_vertices=0;
         int i0;
         for (int id=0;id<N;id++){
             // #vertices local to process in this model
-            int local_size = femmodels[id]->vertices->Size(); 
+            int local_size_vertices = femmodels[id]->vertices->Size(); 
 
             // #vertices across all processes in this model
-            int global_size = femmodels[id]->vertices->NumberOfVertices();
+            int global_size_vertices = femmodels[id]->vertices->NumberOfVertices();
             
-            for (int i=0;i<local_size;i++){
+            for (int i=0;i<local_size_vertices;i++){
                 Vertex* vertex = xDynamicCast<Vertex*>(femmodels[id]->vertices->GetObjectByOffset(i));
-    			i0 = vertex->Lid() + shift_local;
-                *(nodeIds+i0)     = vertex->Sid()+1+shift_global;
+    			i0 = vertex->Lid() + shift_local_vertices;
+                *(nodeIds+i0)     = vertex->Sid()+1+shift_global_vertices;
                 *(nodeCoords+2*i0+0) = vertex->longitude;
-                *(nodeCoords+2*i0+1) = vertex->latitude;
-                
+                *(nodeCoords+2*i0+1) = vertex->latitude;    
             }
             // shift for next model starting indices:
-            shift_local += local_size;
-            shift_global += global_size; 
+            shift_local_vertices += local_size_vertices;
+            shift_global_vertices += global_size_vertices; 
         }    
     }
 
@@ -467,7 +437,7 @@ extern "C" {
         /*that form the element as described in the ESMF reference document     */ 
         int shift_local_elements = 0;
         int shift_global_elements = 0;
-        int shift_local_nodes = 0;
+        int shift_local_vertices = 0;
         int i0;
         for (int id=0;id<N;id++){
             // #elements local to process in this model
@@ -476,35 +446,32 @@ extern "C" {
             // #elements across all processes in this model
             int global_size_elements = femmodels[id]->elements->NumberOfElements();
 
-            // #nodes local to process in this model
-            int local_size_nodes = femmodels[id]->vertices->Size();
+            // #vertices local to process in this model
+            int local_size_vertices = femmodels[id]->vertices->Size();
             
             for(int i=0;i<local_size_elements;i++){
                 Element* element=xDynamicCast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
                 i0 = i + shift_local_elements; 
                 *(elementIds+i0)    = element->Sid()+1+shift_global_elements;
                 *(glacIds+i0)    = id;
-                *(elementConn + i0*3+0) = element->vertices[0]->Lid()+1+shift_local_nodes;
-                *(elementConn + i0*3+1) = element->vertices[1]->Lid()+1+shift_local_nodes;
-                *(elementConn + i0*3+2) = element->vertices[2]->Lid()+1+shift_local_nodes;
+                *(elementConn + i0*3+0) = element->vertices[0]->Lid()+1+shift_local_vertices;
+                *(elementConn + i0*3+1) = element->vertices[1]->Lid()+1+shift_local_vertices;
+                *(elementConn + i0*3+2) = element->vertices[2]->Lid()+1+shift_local_vertices;
     
     			// Compute the triangle centroid in longitude/latitude
     			IssmDouble centroid_lon=0.0,centroid_lat=0.0;
     			for(int j=0;j<3;j++){
-    			centroid_lon += element->vertices[j]->longitude / 3.0;
-    			centroid_lat += element->vertices[j]->latitude / 3.0;
+        			centroid_lon += element->vertices[j]->longitude / 3.0;
+        			centroid_lat += element->vertices[j]->latitude / 3.0;
     			}
     		
     			*(elementCoords + 2*i0 + 0) = centroid_lon;
     			*(elementCoords + 2*i0 + 1) = centroid_lat;
-    
             }
             // shift for next model starting indices:
-            shift_local_nodes += local_size_nodes; 
+            shift_local_vertices += local_size_vertices; 
             shift_local_elements += local_size_elements;
-            shift_global_elements += global_size_elements;
-            
+            shift_global_elements += global_size_elements;          
         }
     }
-
 }

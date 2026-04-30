@@ -20,18 +20,16 @@ program main
         integer(c_int)                  :: comm
     end subroutine InitializeISSM
         
-    subroutine RunISSM(dt, gcm_forcings, issm_outputs, elementConn) bind(C,NAME="RunISSM")
+    subroutine RunISSM(dt, gcm_forcings, issm_outputs) bind(C,NAME="RunISSM")
        import :: c_ptr, c_double, c_int
        real(c_double),   value   :: dt
        type(c_ptr),      value   :: gcm_forcings
        type(c_ptr),      value   :: issm_outputs
-       type(c_ptr),      value   :: elementConn
     end subroutine RunISSM
 
-    subroutine InputFromRestarts(gcm_restarts, elementConn) bind(C,NAME="InputFromRestarts")
+    subroutine InputFromRestarts(gcm_restarts) bind(C,NAME="InputFromRestarts")
        import :: c_ptr
        type(c_ptr),      value   :: gcm_restarts
-       type(c_ptr),      value   :: elementConn
     end subroutine InputFromRestarts
    
     subroutine GetNodesISSM(nodeIds, nodeCoords) bind(C,NAME="GetNodesISSM")
@@ -151,7 +149,7 @@ program main
     call ESMF_VMGet(vm,mpiCommunicator=comm,localPET=localPET,petCount=petCount,rc=rc)    
 
 
-    dt = 0.05   ! timestep in years
+    dt = 86400   ! timestep in seconds
 
     ! Get the environment variable ISSM_DIR
     call get_environment_variable("ISSM_DIR", issm_path, length, status)
@@ -161,6 +159,8 @@ program main
     call InitializeISSM(EXPDIR, num_elements, num_nodes, comm)
 
     print *, "rank: ", localPET, " num_elements: ", num_elements
+    print *, "rank: ", localPET, " num_nodes: ", num_nodes
+    
 
     ! allocate mesh-related pointers
     allocate(nodeCoords(2*num_nodes))
@@ -298,16 +298,15 @@ program main
     call ESMF_FieldGet(field0,farrayPtr=smb_ownodes,rc=rc)
 
 
-    if (localPET==1) then
+    if (localPET==0) then
         print *, "num nodes:", num_nodes
-        print *, "size smb_ownodes:", smb_ownodes
     end if 
 
     !where (nodeOwners == localPET)
     !    smb_nodes = smb_ownodes
     !end where
 
-    print *, "regrid with new field worked"
+    ! print *, "regrid with new field worked"
 
     !print *, "smb regridded: ", smb_nodes
 
@@ -324,18 +323,21 @@ program main
 
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs), c_loc(elementConn))
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
 
+    call ESMF_VMBarrier(vm, rc=rc)
     ! assign restarts to output for next time step, just as an example...
     gcm_restarts(:) = issm_outputs(:)
 
+    print *, "max issm outputs: ",maxval(issm_outputs)
+
     ! try setting inputs...
-    call InputFromRestarts(c_loc(gcm_restarts), c_loc(elementConn))
+    call InputFromRestarts(c_loc(gcm_restarts))
  
     ! try running again to see if we get correct result from restart inputs
     call ESMF_VMBarrier(vm, rc=rc)
     !call the C++ routine for running a single time step
-    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs), c_loc(elementConn))
+    call RunISSM(dt, c_loc(SMBToISSM), c_loc(issm_outputs))
 
     SurfaceOnNodes(:) = issm_outputs(1:num_nodes)
     ICEEL(:) = issm_outputs(1:num_nodes)
