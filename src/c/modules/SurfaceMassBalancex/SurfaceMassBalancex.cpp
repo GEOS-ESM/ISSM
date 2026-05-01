@@ -418,10 +418,17 @@ void PositiveDegreeDayGCMx(FemModel* femmodel){/*{{{*/
 #ifdef _HAVE_PyBind11_
 void SmbEmulatorx(FemModel* femmodel){/*{{{*/
 
-	IssmDouble timeinputs = 0.0;
+	if(!femmodel->parameters->Exist(SmbEmulatorEnum)) _error_("SmbEmulatorEnum not found; SMB emulator was not initialized");
+	Param* emulator_param = femmodel->parameters->FindParamObject(SmbEmulatorEnum);
+	if(emulator_param->ObjectEnum()!=EmulatorParamEnum) _error_("Parameter should be EmulatorParam");
+	EmulatorParam* smbemulator = xDynamicCast<EmulatorParam*>(emulator_param);
+
+	IssmDouble timeinputs;
+	femmodel->parameters->FindParam(&timeinputs,TimeEnum);
+
 	for(Object* & object : femmodel->elements->objects){
 		Element* element=xDynamicCast<Element*>(object);
-		element->SmbEmulator(timeinputs);
+		element->SmbEmulator(timeinputs, smbemulator);
 	}
 
 }/*}}}*/

@@ -60,14 +60,6 @@ Element::Element(){/*{{{*/
 	this->material   = NULL;
 	this->parameters = NULL;
 	this->element_type_list=NULL;
-	#ifdef _HAVE_PyBind11_
-	if (0) {
-     Param* emulator_param = this->parameters->FindParamObject(SmbEmulatorEnum);
-	  if(emulator_param->ObjectEnum()!=EmulatorParamEnum) _error_("Parameter should be EmulatorParam");
-	  this->smbemulator = xDynamicCast<EmulatorParam*>(emulator_param);
-	}
-	this->smbemulator = NULL;
-	#endif
 }/*}}}*/
 Element::~Element(){/*{{{*/
 	xDelete<int>(element_type_list);
@@ -4218,48 +4210,97 @@ void       Element::PositiveDegreeDayGCM(){/*{{{*/
 }
 /*}}}*/
 #if _HAVE_PyBind11_
-void       Element::SmbEmulator(IssmDouble timeinputs){/*{{{*/
+void       Element::SmbEmulator(IssmDouble timeinputs, EmulatorParam* emulator){/*{{{*/
 	
 	int numvertices = this->GetNumberOfVertices();
-	IssmDouble* al  = xNew<IssmDouble>(numvertices);
-	IssmDouble* st  = xNew<IssmDouble>(numvertices);
-	IssmDouble* tt  = xNew<IssmDouble>(numvertices);
-	IssmDouble* lwd = xNew<IssmDouble>(numvertices);
-	IssmDouble* smb = xNew<IssmDouble>(numvertices);
 
-	Input* al_input  = this->GetInput(SmbAlEnum,timeinputs);  _assert_(al_input);
-	Input* st_input  = this->GetInput(SmbStEnum,timeinputs);  _assert_(st_input);
-	Input* tt_input  = this->GetInput(SmbTtEnum,timeinputs);  _assert_(tt_input);
-	Input* lwd_input = this->GetInput(SmbLwdEnum,timeinputs); _assert_(lwd_input);
+	IssmDouble* smb  = xNew<IssmDouble>(numvertices);
+	IssmDouble* elev = xNew<IssmDouble>(numvertices);
+	IssmDouble* lon  = xNew<IssmDouble>(numvertices);
+	IssmDouble* lat  = xNew<IssmDouble>(numvertices);
+	IssmDouble* al   = xNew<IssmDouble>(numvertices);
+	IssmDouble* st   = xNew<IssmDouble>(numvertices);
+	IssmDouble* tt   = xNew<IssmDouble>(numvertices);
+	IssmDouble* swd  = xNew<IssmDouble>(numvertices);
+	IssmDouble* lwd  = xNew<IssmDouble>(numvertices);
+	IssmDouble* swu  = xNew<IssmDouble>(numvertices);
+	IssmDouble* lwu  = xNew<IssmDouble>(numvertices);
+	IssmDouble* shf  = xNew<IssmDouble>(numvertices);
+	IssmDouble* lhf  = xNew<IssmDouble>(numvertices);
 
+	Input* elev_input = this->GetInput(SurfaceEnum);             _assert_(elev_input);
+	Input* al_input   = this->GetInput(SmbAlEnum,timeinputs);    _assert_(al_input);
+	Input* st_input   = this->GetInput(SmbStEnum,timeinputs);    _assert_(st_input);
+	Input* tt_input   = this->GetInput(SmbTtEnum,timeinputs);    _assert_(tt_input);
+	Input* swd_input  = this->GetInput(SmbSwdEnum,timeinputs);   _assert_(swd_input);
+	Input* lwd_input  = this->GetInput(SmbLwdEnum,timeinputs);   _assert_(lwd_input);
+	Input* swu_input  = this->GetInput(SmbSwuEnum,timeinputs);   _assert_(swu_input);
+	Input* lwu_input  = this->GetInput(SmbLwuEnum,timeinputs);   _assert_(lwu_input);
+	Input* shf_input  = this->GetInput(SmbShfEnum,timeinputs);   _assert_(shf_input);
+	Input* lhf_input  = this->GetInput(SmbLhfEnum,timeinputs);   _assert_(lhf_input);
+
+	for(int iv=0;iv<numvertices;iv++){
+		lon[iv] = this->vertices[iv]->GetLongitude();
+		lat[iv] = this->vertices[iv]->GetLatitude();
+	}
+	this->GetInputListOnVertices(elev,elev_input,0.);
 	this->GetInputListOnVertices(al,al_input,0.);
 	this->GetInputListOnVertices(st,st_input,0.);
 	this->GetInputListOnVertices(tt,tt_input,0.);
+	this->GetInputListOnVertices(swd,swd_input,0.);
 	this->GetInputListOnVertices(lwd,lwd_input,0.);
+	this->GetInputListOnVertices(swu,swu_input,0.);
+	this->GetInputListOnVertices(lwu,lwu_input,0.);
+	this->GetInputListOnVertices(shf,shf_input,0.);
+	this->GetInputListOnVertices(lhf,lhf_input,0.);
 
 	try{
 		py::gil_scoped_acquire gil;
 
+		py::array_t<double> lon_np(numvertices);
+		py::array_t<double> lat_np(numvertices);
+		py::array_t<double> elev_np(numvertices);
 		py::array_t<double> al_np(numvertices);
 		py::array_t<double> st_np(numvertices);
 		py::array_t<double> tt_np(numvertices);
+		py::array_t<double> swd_np(numvertices);
 		py::array_t<double> lwd_np(numvertices);
+		py::array_t<double> swu_np(numvertices);
+		py::array_t<double> lwu_np(numvertices);
+		py::array_t<double> shf_np(numvertices);
+		py::array_t<double> lhf_np(numvertices);
 
+		auto lon_view  = lon_np.mutable_unchecked<1>();
+		auto lat_view  = lat_np.mutable_unchecked<1>();
+		auto elev_view = elev_np.mutable_unchecked<1>();
 		auto al_view  = al_np.mutable_unchecked<1>();
 		auto st_view  = st_np.mutable_unchecked<1>();
 		auto tt_view  = tt_np.mutable_unchecked<1>();
+		auto swd_view = swd_np.mutable_unchecked<1>();
 		auto lwd_view = lwd_np.mutable_unchecked<1>();
+		auto swu_view = swu_np.mutable_unchecked<1>();
+		auto lwu_view = lwu_np.mutable_unchecked<1>();
+		auto shf_view = shf_np.mutable_unchecked<1>();
+		auto lhf_view = lhf_np.mutable_unchecked<1>();
 
 		for(int iv=0;iv<numvertices;iv++){
+			lon_view(iv)  = static_cast<double>(lon[iv]);
+			lat_view(iv)  = static_cast<double>(lat[iv]);
+			elev_view(iv) = static_cast<double>(elev[iv]);
 			al_view(iv)  = static_cast<double>(al[iv]);
 			st_view(iv)  = static_cast<double>(st[iv]);
 			tt_view(iv)  = static_cast<double>(tt[iv]);
+			swd_view(iv) = static_cast<double>(swd[iv]);
 			lwd_view(iv) = static_cast<double>(lwd[iv]);
+			swu_view(iv) = static_cast<double>(swu[iv]);
+			lwu_view(iv) = static_cast<double>(lwu[iv]);
+			shf_view(iv) = static_cast<double>(shf[iv]);
+			lhf_view(iv) = static_cast<double>(lhf[iv]);
 		}
 
-		/*TODO: finalize the Python SMB emulator signature. This placeholder matches
-		 * the current minimum variable set requested for the SMB emulator path.*/
-		py::object pred_obj = this->smbemulator->mod.attr("predict_smb_np")(al_np, st_np, tt_np, lwd_np, py::arg("dtype") = "float64");
+		py::object pred_obj = emulator->mod.attr("predict_smb_np")(
+					elev_np, lon_np, lat_np, al_np, st_np, tt_np, swd_np, lwd_np, swu_np, lwu_np, shf_np, lhf_np,
+					py::arg("dtype") = "float64");
 		py::array_t<double, py::array::c_style | py::array::forcecast> pred(pred_obj);
 		auto pred_view = pred.unchecked<1>();
 		_assert_(pred.shape(0)==numvertices);
@@ -4277,11 +4318,20 @@ void       Element::SmbEmulator(IssmDouble timeinputs){/*{{{*/
 
 	this->AddInput(SmbMassBalanceEnum,smb,P1Enum);
 
+	xDelete<IssmDouble>(lon);
+	xDelete<IssmDouble>(lat);
+	xDelete<IssmDouble>(elev);
 	xDelete<IssmDouble>(al);
 	xDelete<IssmDouble>(st);
 	xDelete<IssmDouble>(tt);
+	xDelete<IssmDouble>(swd);
 	xDelete<IssmDouble>(lwd);
+	xDelete<IssmDouble>(swu);
+	xDelete<IssmDouble>(lwu);
+	xDelete<IssmDouble>(shf);
+	xDelete<IssmDouble>(lhf);
 	xDelete<IssmDouble>(smb);
+		
 } 
 /*}}}*/
 #endif
