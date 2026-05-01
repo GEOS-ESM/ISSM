@@ -25,7 +25,7 @@ function [bx by b]=basalstress(md)
 			% calculate effective pressure using coupling definition in md.friction
 			N = effectivepressure(md); % effective pressure (Pa)
 
-			%compute exponents
+			% compute exponents
 			s=averaging(md,1./md.friction.p,0);
 			r=averaging(md,md.friction.q./md.friction.p,0);
 
