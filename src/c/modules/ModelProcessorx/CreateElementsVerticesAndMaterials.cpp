@@ -450,7 +450,9 @@ void CreateVertices(Elements* elements,Vertices* vertices,IoModel* iomodel,int s
 	if(solution_type!=LoveSolutionEnum) CreateNumberNodeToElementConnectivity(iomodel);
 	if(!isamr){
 		int isoceancoupling;
+		int smb_model;
 		iomodel->FindConstant(&isoceancoupling,"md.transient.isoceancoupling");
+		iomodel->FindConstant(&smb_model,"md.smb.model");
 
 		//iomodel->FetchData(6,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness","md.mask.ice_levelset");
 		iomodel->FetchData(5,"md.mesh.x","md.mesh.y","md.mesh.z","md.geometry.base","md.geometry.thickness");

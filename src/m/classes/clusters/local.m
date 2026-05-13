@@ -45,7 +45,7 @@ classdef local
 			if cluster.np<1
 				md = checkmessage(md,['number of processors should be at least 1']);
 			end
-			if isnan(cluster.np),
+			if isnan(cluster.np)
 				md = checkmessage(md,'number of processors should not be NaN!');
 			end
 		end
@@ -78,7 +78,8 @@ classdef local
 			%do nothing really.
 		end %}}}
 		function LaunchQueueJob(cluster,modelname,dirname,filelist,restart,batch)% {{{
-			system(['source ' modelname '.queue']);
+			root=[issmdir() '/execution/' dirname];
+			system(['source ' root '/' modelname '.queue']);
 		end %}}}
 		function Download(cluster,dirname,filelist)% {{{
 		end %}}}

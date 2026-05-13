@@ -689,7 +689,7 @@ AC_DEFUN([ISSM_OPTIONS],[
 		AC_MSG_CHECKING([for Python include directory])
 		PYTHONINCL=$(${PYTHON_PATH} -c "import sys; import sysconfig; sys.stdout.write(sysconfig.get_config_var('INCLUDEPY'))")
 		if ! test -f "${PYTHONINCL}/Python.h"; then
-			PYTHONINCL=$(${PYTHON_PATH} -c "from sysconfig import get_paths as gp; print(gp()['include'])")
+			PYTHONINCL=$(${PYTHON_PATH} -c "from sysconfig import get_paths as gp; print(gp().get('include'))")
 			if ! test -f "${PYTHONINCL}/Python.h"; then
 				AC_MSG_ERROR([Python.h not found! Please locate this file and contact ISSM developers via forum or email.]);
 			fi
@@ -704,7 +704,7 @@ AC_DEFUN([ISSM_OPTIONS],[
 		elif ls ${PYTHONLIBDIR}/libpython${PYTHON_VERSION}.* 1> /dev/null 2>&1; then
 			PYTHONLIB="-L${PYTHONLIBDIR} -lpython${PYTHON_VERSION}"
 		else
-			PYTHONLIBDIR=$(${PYTHON_PATH} -c "from sysconfig import get_paths as gp; print(gp()[['stdlib']])")
+			PYTHONLIBDIR=$(${PYTHON_PATH} -c "from sysconfig import get_paths as gp; print(gp().get('stdlib'))")
 			if ls ${PYTHONLIBDIR}/../libpython${PYTHON_VERSION}m.* 1> /dev/null 2>&1; then
 				PYTHONLIB="-L${PYTHONLIBDIR}/.. -lpython${PYTHON_VERSION}m"
 			elif ls ${PYTHONLIBDIR}/../libpython${PYTHON_VERSION}.* 1> /dev/null 2>&1; then
@@ -1573,35 +1573,6 @@ AC_DEFUN([ISSM_OPTIONS],[
 			AC_SUBST([TAOINCL])
 			AC_SUBST([TAOLIB])
 		fi
-	fi
-	dnl }}}
-	dnl M1QN3{{{
-	AC_MSG_CHECKING([for M1QN3])
-	AC_ARG_WITH(
-		[m1qn3-dir],
-		AS_HELP_STRING([--with-m1qn3-dir=DIR], [M1QN3 root directory]),
-		[M1QN3_ROOT=${withval}],
-		[M1QN3_ROOT="no"]
-	)
-	if test "x${M1QN3_ROOT}" == "xno"; then
-		HAVE_M1QN3=no
-	else
-		HAVE_M1QN3=yes
-		if ! test -d "${M1QN3_ROOT}"; then
-			AC_MSG_ERROR([M1QN3 directory provided (${M1QN3_ROOT}) does not exist!]);
-		fi
-	fi
-	AC_MSG_RESULT([${HAVE_M1QN3}])
-
-	dnl M1QN3 libraries and header files
-	if test "x${HAVE_M1QN3}" == "xyes"; then
-		if test "x${IS_MSYS2}" == "xyes"; then
-			M1QN3LIB="-Wl,-L${M1QN3_ROOT} -Wl,-lm1qn3 -Wl,-lddot"
-		else
-			M1QN3LIB="-L${M1QN3_ROOT} -lm1qn3 -lddot"
-		fi
-		AC_DEFINE([_HAVE_M1QN3_], [1], [with M1QN3 in ISSM src])
-		AC_SUBST([M1QN3LIB])
 	fi
 	dnl }}}
 	dnl PROJ{{{
