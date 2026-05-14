@@ -48,7 +48,7 @@ vy = InterpFromGridToMesh(x1, y1, vely, md.mesh.x, md.mesh.y, 0)
 speed = np.sqrt(vx**2 + vy**2)
 
 # Mesh Greenland (refine according to flow speed)
-md = bamg(md, 'hmax', 400000, 'hmin', 5000, 'gradation', 1.4, 'field', speed, 'err', 8)
+md = bamg(md, 'hmax', 75000, 'hmin', 5000, 'gradation', 1.4, 'field', speed, 'err', 8)
 
 # export mesh
 export_discover(md, './Models/Greenland_mesh.nc')
@@ -59,15 +59,13 @@ md = setmask(md, '', '')
 md = parameterize(md, './Greenland_parameterize.py')
 md = setflowequation(md, 'SSA', 'all')
 
-print(md.mesh)
-
 # export parameterization
 export_discover(md, "./Models/Greenland_parameterization.nc",delete_rundir=True)
 
 # Step 3: basal friction inversion 
 #Control general
 md.inversion.iscontrol = 1
-md.inversion.nsteps = 30
+md.inversion.nsteps = 200
 md.inversion.step_threshold = 0.99 * np.ones((md.inversion.nsteps))
 md.inversion.maxiter_per_step = 10 * np.ones((md.inversion.nsteps))
 
@@ -91,7 +89,7 @@ md.stressbalance.reltol = 0.1
 md.private.solution = 'Stressbalance'
 md.settings.waitonlock = 0
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
-marshall(md) # create .bin file
+marshall(md,md.miscellaneous.name+'.bin') # create .bin file
 
 # export configuration for loading solution in next step
 export_discover(md,'./Models/Greenland_inversion.nc',delete_rundir=True)

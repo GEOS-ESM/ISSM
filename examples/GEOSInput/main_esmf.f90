@@ -202,8 +202,6 @@ program main
 
     call GetElementsISSM(c_loc(elementIds), c_loc(elementConn), c_loc(elementCoords),c_loc(glacIds))
 
-    print *, "max elementIds: ", maxval(elementIds)
-
     elementTypes(:) = ESMF_MESHELEMTYPE_TRI
     call ESMF_VMBarrier(vm, rc=rc) 
     
@@ -242,7 +240,7 @@ program main
     end if
 
     !--------------------------------------------------------------
-    ! need to set up mesh halo
+    ! test setting up mesh halo
     ! get nodeOwners, figure out how many owned nodes on this PET
     call ESMF_MeshGet(mesh,nodeOwners=nodeOwners)
     num_owned_nodes = count(nodeOwners == localPet)
@@ -296,19 +294,6 @@ program main
     
     call ESMF_FieldHalo(field0, routehandle=haloHandle, rc=rc)
     call ESMF_FieldGet(field0,farrayPtr=smb_ownodes,rc=rc)
-
-
-    if (localPET==0) then
-        print *, "num nodes:", num_nodes
-    end if 
-
-    !where (nodeOwners == localPET)
-    !    smb_nodes = smb_ownodes
-    !end where
-
-    ! print *, "regrid with new field worked"
-
-    !print *, "smb regridded: ", smb_nodes
 
 !-------------------------------------------------------------
     ! set smb and surface for test 
