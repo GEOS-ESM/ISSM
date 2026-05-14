@@ -20,7 +20,7 @@ $(error Environment variable ESMFMKFILE was not set.)
 endif
 
 include $(ESMFMKFILE)
-ISSM_LIBS = -L/discover/nobackup/agstubbl/ISSM/GEOS-ISSM/ISSM/lib -lISSMCore 
+ISSM_LIBS = -L/discover/nobackup/agstubbl/ISSM/ISSM/lib -lISSMCore 
 ################################################################################
 ### Compiler and linker rules using ESMF_ variables supplied by esmf.mk ########
 
