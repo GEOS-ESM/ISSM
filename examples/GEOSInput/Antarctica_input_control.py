@@ -96,7 +96,7 @@ md.stressbalance.abstol=np.nan
 # Solve
 md.private.solution = 'Stressbalance'
 md.settings.waitonlock = 0
-md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
+md.toolkits.ToolkitsFile('ISSM_'+md.miscellaneous.name + '.toolkits')
 marshall(md,'ISSM_'+md.miscellaneous.name+'.bin')
 
 # export configuration for loading solution in next step
