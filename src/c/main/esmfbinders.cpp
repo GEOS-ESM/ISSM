@@ -21,9 +21,9 @@ extern "C" {
     static FemModel** femmodels = nullptr; // container for all FemModel objects
 
     void InitializeISSM(const char* EXPDIR, int* ptotal_elements, int* ptotal_nodes, MPI_Fint* Fcomm){
-        /*  Determine number of input (.bin) files and create a FemModel */
-        /*  for each one. Return total number of elements and nodes per  */
-        /*  process across all models                                    */
+        /*  Determine number of input (ISSM*.bin) files and create a FemModel */
+        /*  for each one. Return total number of elements and nodes per       */
+        /*  process across all models                                         */
         
         int total_elements = 0; // #elements on process across all models
         total_nodes=0;          // #vertices on process across all models (static)
@@ -31,15 +31,27 @@ extern "C" {
         /* Convert Fortran MPI comm to C MPI comm */
         MPI_Comm Ccomm = MPI_Comm_f2c(*Fcomm);
     
-        /* Scan directory for .bin files                                 */
+        /* Scan directory for ISSM*.bin files */
         std::vector<std::string> binfiles;
-    
+
         for (auto& e : std::filesystem::directory_iterator(EXPDIR)) {
-            if (e.is_regular_file() && e.path().extension() == ".bin") {
-                binfiles.push_back(e.path().stem().string()); // remove ".bin"
+
+            if (!e.is_regular_file())
+                continue;
+
+            const auto path = e.path();
+
+            if (path.extension() == ".bin") {
+
+                std::string stem = path.stem().string();
+
+                // Match files like ISSM*.bin
+                if (stem.rfind("ISSM", 0) == 0) {
+                    binfiles.push_back(stem); // remove ".bin"
+                }
             }
         }
-    
+
         std::sort(binfiles.begin(), binfiles.end()); 
     
         N = static_cast<int>(binfiles.size()); // total number of input files
