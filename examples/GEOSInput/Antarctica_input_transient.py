@@ -10,7 +10,7 @@ from marshall import marshall
 from verbose import verbose 
 
 md = loadmodel('./Models/Antarctica_inversion.nc')
-md = loadresultsfromdisk(md,'AntarcticaGEOS.outbin')
+md = loadresultsfromdisk(md,'ISSM_AntarcticaGEOS.outbin')
 md.friction.coefficient = md.results.StressbalanceSolution.FrictionCoefficient
 
 
