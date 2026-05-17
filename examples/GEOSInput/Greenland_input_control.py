@@ -89,7 +89,7 @@ md.stressbalance.reltol = 0.1
 md.private.solution = 'Stressbalance'
 md.settings.waitonlock = 0
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
-marshall(md,md.miscellaneous.name+'.bin') # create .bin file
+marshall(md,'ISSM_'+md.miscellaneous.name+'.bin') # create .bin file
 
 # export configuration for loading solution in next step
 export_discover(md,'./Models/Greenland_inversion.nc',delete_rundir=True)

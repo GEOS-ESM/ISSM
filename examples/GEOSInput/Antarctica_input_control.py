@@ -97,7 +97,7 @@ md.stressbalance.abstol=np.nan
 md.private.solution = 'Stressbalance'
 md.settings.waitonlock = 0
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
-marshall(md,md.miscellaneous.name+'.bin')
+marshall(md,'ISSM_'+md.miscellaneous.name+'.bin')
 
 # export configuration for loading solution in next step
 export_discover(md,'./Models/Antarctica_inversion.nc',delete_rundir=True)

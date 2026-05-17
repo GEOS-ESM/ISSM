@@ -23,7 +23,7 @@ md.settings.waitonlock = 0
 md.private.solution = 'Transient'
 md.verbose = verbose('000000000')
 md.toolkits = toolkits()
-marshall(md,md.miscellaneous.name+'.bin') # create .bin file
+marshall(md,'ISSM_'+md.miscellaneous.name+'.bin') # create .bin file
 md.toolkits.ToolkitsFile(md.miscellaneous.name + '.toolkits')
 export_discover(md,'./Models/Greenland_initialization.nc',delete_rundir=True)
 
