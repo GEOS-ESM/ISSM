@@ -188,6 +188,7 @@ const char* EnumToStringx(int en){
 		case DebugProfilingEnum : return "DebugProfiling";
 		case DomainDimensionEnum : return "DomainDimension";
 		case DomainTypeEnum : return "DomainType";
+		case DoNotSaveResultsEnum : return "DoNotSaveResults";
 		case DslModelEnum : return "DslModel";
 		case DslModelidEnum : return "DslModelid";
 		case DslNummodelsEnum : return "DslNummodels";
@@ -336,6 +337,7 @@ const char* EnumToStringx(int en){
 		case InputToL2ProjectEnum : return "InputToL2Project";
 		case InputToSmoothEnum : return "InputToSmooth";
 		case InversionAlgorithmEnum : return "InversionAlgorithm";
+		case InversionC0Enum : return "InversionC0";
 		case InversionControlParametersEnum : return "InversionControlParameters";
 		case InversionControlScalingFactorsEnum : return "InversionControlScalingFactors";
 		case InversionCostFunctionsEnum : return "InversionCostFunctions";
@@ -347,14 +349,23 @@ const char* EnumToStringx(int en){
 		case InversionGttolEnum : return "InversionGttol";
 		case InversionIncompleteAdjointEnum : return "InversionIncompleteAdjoint";
 		case InversionIscontrolEnum : return "InversionIscontrol";
+		case InversionH0CEnum : return "InversionH0C";
+		case InversionH0MeltEnum : return "InversionH0Melt";
+		case InversionMaxIncrementCEnum : return "InversionMaxIncrementC";
+		case InversionMaxIncrementMeltEnum : return "InversionMaxIncrementMelt";
 		case InversionMaxiterEnum : return "InversionMaxiter";
 		case InversionMaxiterPerStepEnum : return "InversionMaxiterPerStep";
 		case InversionMaxstepsEnum : return "InversionMaxsteps";
+		case InversionMelt0Enum : return "InversionMelt0";
 		case InversionNstepsEnum : return "InversionNsteps";
 		case InversionNumControlParametersEnum : return "InversionNumControlParameters";
 		case InversionNumCostFunctionsEnum : return "InversionNumCostFunctions";
+		case InversionRelaxationCEnum : return "InversionRelaxationC";
+		case InversionRelaxationMeltEnum : return "InversionRelaxationMelt";
 		case InversionStepThresholdEnum : return "InversionStepThreshold";
 		case InversionStopFlagEnum : return "InversionStopFlag";
+		case InversionTauCEnum : return "InversionTauC";
+		case InversionTauMeltEnum : return "InversionTauMelt";
 		case InversionTypeEnum : return "InversionType";
 		case IoConstantEnum : return "IoConstant";
 		case IvinsEnum : return "Ivins";
@@ -1007,6 +1018,12 @@ const char* EnumToStringx(int en){
 		case IceMaskNodeActivationEnum : return "IceMaskNodeActivation";
 		case InputEnum : return "Input";
 		case InversionCostFunctionsCoefficientsEnum : return "InversionCostFunctionsCoefficients";
+		case InversionMaxCEnum : return "InversionMaxC";
+		case InversionMinCEnum : return "InversionMinC";
+		case InversionMaxMeltEnum : return "InversionMaxMelt";
+		case InversionMinMeltEnum : return "InversionMinMelt";
+		case InversionMaxParameterEnum : return "InversionMaxParameter";
+		case InversionMinParameterEnum : return "InversionMinParameter";
 		case InversionSurfaceObsEnum : return "InversionSurfaceObs";
 		case InversionThicknessObsEnum : return "InversionThicknessObs";
 		case InversionVelObsEnum : return "InversionVelObs";
@@ -1379,6 +1396,7 @@ const char* EnumToStringx(int en){
 		case ThicknessEnum : return "Thickness";
 		case ThicknessOldEnum : return "ThicknessOld";
 		case ThicknessPositiveEnum : return "ThicknessPositive";
+		case ThicknessPreviousNudgingStepEnum : return "ThicknessPreviousNudgingStep";
 		case ThicknessResidualEnum : return "ThicknessResidual";
 		case TransientAccumulatedDeltaIceThicknessEnum : return "TransientAccumulatedDeltaIceThickness";
 		case VelEnum : return "Vel";
@@ -3536,6 +3554,7 @@ const char* EnumToStringx(int en){
 		case FloatingAreaEnum : return "FloatingArea";
 		case FloatingAreaScaledEnum : return "FloatingAreaScaled";
 		case FloatingMeltRateEnum : return "FloatingMeltRate";
+		case FluxDivergenceEnum : return "FluxDivergence";
 		case FreeEnum : return "Free";
 		case FreeSurfaceBaseAnalysisEnum : return "FreeSurfaceBaseAnalysis";
 		case FreeSurfaceTopAnalysisEnum : return "FreeSurfaceTopAnalysis";

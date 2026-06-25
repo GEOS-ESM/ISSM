@@ -118,6 +118,7 @@ class Element: public Object{
 		void               GetNodesSidList(int* sidlist);
 		void               GetPhi(IssmDouble* phi, IssmDouble*  epsilon, IssmDouble viscosity);
 		void               GetSolutionFromInputsOneDof(Vector<IssmDouble>* solution,int solutionenum);
+		void               GetVectorFromInputs(IssmDouble* vector, int name_enum, int type);
 		void               GetVectorFromInputs(Vector<IssmDouble>* vector, int name_enum, int type);
 		void               GetVectorFromInputs(Vector<IssmDouble>* vector, int name_enum, int type,IssmDouble time);
 		void	             GetVerticesLidList(int* lidlist);
@@ -323,7 +324,6 @@ class Element: public Object{
 		virtual void  InputUpdateFromVectorDakota(IssmDouble* vector, int name, int type)=0;
 		virtual void  InputScaleFromDakota(IssmDouble* distributed_values, IssmDouble* partition, int npart, int nt, int name)=0;
 		#endif
-		virtual void  InputUpdateFromIoModel(int index, IoModel* iomodel)=0;
 		virtual void  InputUpdateFromVector(IssmDouble* vector, int name, int type)=0;
 		virtual bool       IsFaceOnBoundary(void)=0;
 		virtual bool       IsIcefront(void)=0;

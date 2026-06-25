@@ -239,6 +239,12 @@ Ice
 IceMaskNodeActivation
 Input
 InversionCostFunctionsCoefficients
+InversionMaxC
+InversionMinC
+InversionMaxMelt
+InversionMinMelt
+InversionMaxParameter
+InversionMinParameter
 InversionSurfaceObs
 InversionThicknessObs
 InversionVelObs
@@ -611,6 +617,7 @@ ThicknessAlongGradient
 Thickness
 ThicknessOld
 ThicknessPositive
+ThicknessPreviousNudgingStep
 ThicknessResidual
 TransientAccumulatedDeltaIceThickness
 Vel

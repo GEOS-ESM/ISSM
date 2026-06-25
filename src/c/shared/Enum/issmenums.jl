@@ -175,6 +175,7 @@
 	DebugProfilingEnum
 	DomainDimensionEnum
 	DomainTypeEnum
+	DoNotSaveResultsEnum
 	DslModelEnum
 	DslModelidEnum
 	DslNummodelsEnum
@@ -323,6 +324,7 @@
 	InputToL2ProjectEnum
 	InputToSmoothEnum
 	InversionAlgorithmEnum
+	InversionC0Enum
 	InversionControlParametersEnum
 	InversionControlScalingFactorsEnum
 	InversionCostFunctionsEnum
@@ -334,14 +336,23 @@
 	InversionGttolEnum
 	InversionIncompleteAdjointEnum
 	InversionIscontrolEnum
+	InversionH0CEnum
+	InversionH0MeltEnum
+	InversionMaxIncrementCEnum
+	InversionMaxIncrementMeltEnum
 	InversionMaxiterEnum
 	InversionMaxiterPerStepEnum
 	InversionMaxstepsEnum
+	InversionMelt0Enum
 	InversionNstepsEnum
 	InversionNumControlParametersEnum
 	InversionNumCostFunctionsEnum
+	InversionRelaxationCEnum
+	InversionRelaxationMeltEnum
 	InversionStepThresholdEnum
 	InversionStopFlagEnum
+	InversionTauCEnum
+	InversionTauMeltEnum
 	InversionTypeEnum
 	IoConstantEnum
 	IvinsEnum
@@ -994,6 +1005,12 @@
 	IceMaskNodeActivationEnum
 	InputEnum
 	InversionCostFunctionsCoefficientsEnum
+	InversionMaxCEnum
+	InversionMinCEnum
+	InversionMaxMeltEnum
+	InversionMinMeltEnum
+	InversionMaxParameterEnum
+	InversionMinParameterEnum
 	InversionSurfaceObsEnum
 	InversionThicknessObsEnum
 	InversionVelObsEnum
@@ -1366,6 +1383,7 @@
 	ThicknessEnum
 	ThicknessOldEnum
 	ThicknessPositiveEnum
+	ThicknessPreviousNudgingStepEnum
 	ThicknessResidualEnum
 	TransientAccumulatedDeltaIceThicknessEnum
 	VelEnum
@@ -3523,6 +3541,7 @@
 	FloatingAreaEnum
 	FloatingAreaScaledEnum
 	FloatingMeltRateEnum
+	FluxDivergenceEnum
 	FreeEnum
 	FreeSurfaceBaseAnalysisEnum
 	FreeSurfaceTopAnalysisEnum
@@ -4010,6 +4029,7 @@ function EnumToString(enum::IssmEnum)
 	if(enum==DebugProfilingEnum) return "DebugProfiling" end
 	if(enum==DomainDimensionEnum) return "DomainDimension" end
 	if(enum==DomainTypeEnum) return "DomainType" end
+	if(enum==DoNotSaveResultsEnum) return "DoNotSaveResults" end
 	if(enum==DslModelEnum) return "DslModel" end
 	if(enum==DslModelidEnum) return "DslModelid" end
 	if(enum==DslNummodelsEnum) return "DslNummodels" end
@@ -4158,6 +4178,7 @@ function EnumToString(enum::IssmEnum)
 	if(enum==InputToL2ProjectEnum) return "InputToL2Project" end
 	if(enum==InputToSmoothEnum) return "InputToSmooth" end
 	if(enum==InversionAlgorithmEnum) return "InversionAlgorithm" end
+	if(enum==InversionC0Enum) return "InversionC0" end
 	if(enum==InversionControlParametersEnum) return "InversionControlParameters" end
 	if(enum==InversionControlScalingFactorsEnum) return "InversionControlScalingFactors" end
 	if(enum==InversionCostFunctionsEnum) return "InversionCostFunctions" end
@@ -4169,14 +4190,23 @@ function EnumToString(enum::IssmEnum)
 	if(enum==InversionGttolEnum) return "InversionGttol" end
 	if(enum==InversionIncompleteAdjointEnum) return "InversionIncompleteAdjoint" end
 	if(enum==InversionIscontrolEnum) return "InversionIscontrol" end
+	if(enum==InversionH0CEnum) return "InversionH0C" end
+	if(enum==InversionH0MeltEnum) return "InversionH0Melt" end
+	if(enum==InversionMaxIncrementCEnum) return "InversionMaxIncrementC" end
+	if(enum==InversionMaxIncrementMeltEnum) return "InversionMaxIncrementMelt" end
 	if(enum==InversionMaxiterEnum) return "InversionMaxiter" end
 	if(enum==InversionMaxiterPerStepEnum) return "InversionMaxiterPerStep" end
 	if(enum==InversionMaxstepsEnum) return "InversionMaxsteps" end
+	if(enum==InversionMelt0Enum) return "InversionMelt0" end
 	if(enum==InversionNstepsEnum) return "InversionNsteps" end
 	if(enum==InversionNumControlParametersEnum) return "InversionNumControlParameters" end
 	if(enum==InversionNumCostFunctionsEnum) return "InversionNumCostFunctions" end
+	if(enum==InversionRelaxationCEnum) return "InversionRelaxationC" end
+	if(enum==InversionRelaxationMeltEnum) return "InversionRelaxationMelt" end
 	if(enum==InversionStepThresholdEnum) return "InversionStepThreshold" end
 	if(enum==InversionStopFlagEnum) return "InversionStopFlag" end
+	if(enum==InversionTauCEnum) return "InversionTauC" end
+	if(enum==InversionTauMeltEnum) return "InversionTauMelt" end
 	if(enum==InversionTypeEnum) return "InversionType" end
 	if(enum==IoConstantEnum) return "IoConstant" end
 	if(enum==IvinsEnum) return "Ivins" end
@@ -4829,6 +4859,12 @@ function EnumToString(enum::IssmEnum)
 	if(enum==IceMaskNodeActivationEnum) return "IceMaskNodeActivation" end
 	if(enum==InputEnum) return "Input" end
 	if(enum==InversionCostFunctionsCoefficientsEnum) return "InversionCostFunctionsCoefficients" end
+	if(enum==InversionMaxCEnum) return "InversionMaxC" end
+	if(enum==InversionMinCEnum) return "InversionMinC" end
+	if(enum==InversionMaxMeltEnum) return "InversionMaxMelt" end
+	if(enum==InversionMinMeltEnum) return "InversionMinMelt" end
+	if(enum==InversionMaxParameterEnum) return "InversionMaxParameter" end
+	if(enum==InversionMinParameterEnum) return "InversionMinParameter" end
 	if(enum==InversionSurfaceObsEnum) return "InversionSurfaceObs" end
 	if(enum==InversionThicknessObsEnum) return "InversionThicknessObs" end
 	if(enum==InversionVelObsEnum) return "InversionVelObs" end
@@ -5201,6 +5237,7 @@ function EnumToString(enum::IssmEnum)
 	if(enum==ThicknessEnum) return "Thickness" end
 	if(enum==ThicknessOldEnum) return "ThicknessOld" end
 	if(enum==ThicknessPositiveEnum) return "ThicknessPositive" end
+	if(enum==ThicknessPreviousNudgingStepEnum) return "ThicknessPreviousNudgingStep" end
 	if(enum==ThicknessResidualEnum) return "ThicknessResidual" end
 	if(enum==TransientAccumulatedDeltaIceThicknessEnum) return "TransientAccumulatedDeltaIceThickness" end
 	if(enum==VelEnum) return "Vel" end
@@ -7358,6 +7395,7 @@ function EnumToString(enum::IssmEnum)
 	if(enum==FloatingAreaEnum) return "FloatingArea" end
 	if(enum==FloatingAreaScaledEnum) return "FloatingAreaScaled" end
 	if(enum==FloatingMeltRateEnum) return "FloatingMeltRate" end
+	if(enum==FluxDivergenceEnum) return "FluxDivergence" end
 	if(enum==FreeEnum) return "Free" end
 	if(enum==FreeSurfaceBaseAnalysisEnum) return "FreeSurfaceBaseAnalysis" end
 	if(enum==FreeSurfaceTopAnalysisEnum) return "FreeSurfaceTopAnalysis" end
@@ -7845,6 +7883,7 @@ function StringToEnum(name::String)
 	if(name=="DebugProfiling") return DebugProfilingEnum  end
 	if(name=="DomainDimension") return DomainDimensionEnum  end
 	if(name=="DomainType") return DomainTypeEnum  end
+	if(name=="DoNotSaveResults") return DoNotSaveResultsEnum  end
 	if(name=="DslModel") return DslModelEnum  end
 	if(name=="DslModelid") return DslModelidEnum  end
 	if(name=="DslNummodels") return DslNummodelsEnum  end
@@ -7993,6 +8032,7 @@ function StringToEnum(name::String)
 	if(name=="InputToL2Project") return InputToL2ProjectEnum  end
 	if(name=="InputToSmooth") return InputToSmoothEnum  end
 	if(name=="InversionAlgorithm") return InversionAlgorithmEnum  end
+	if(name=="InversionC0") return InversionC0Enum  end
 	if(name=="InversionControlParameters") return InversionControlParametersEnum  end
 	if(name=="InversionControlScalingFactors") return InversionControlScalingFactorsEnum  end
 	if(name=="InversionCostFunctions") return InversionCostFunctionsEnum  end
@@ -8004,14 +8044,23 @@ function StringToEnum(name::String)
 	if(name=="InversionGttol") return InversionGttolEnum  end
 	if(name=="InversionIncompleteAdjoint") return InversionIncompleteAdjointEnum  end
 	if(name=="InversionIscontrol") return InversionIscontrolEnum  end
+	if(name=="InversionH0C") return InversionH0CEnum  end
+	if(name=="InversionH0Melt") return InversionH0MeltEnum  end
+	if(name=="InversionMaxIncrementC") return InversionMaxIncrementCEnum  end
+	if(name=="InversionMaxIncrementMelt") return InversionMaxIncrementMeltEnum  end
 	if(name=="InversionMaxiter") return InversionMaxiterEnum  end
 	if(name=="InversionMaxiterPerStep") return InversionMaxiterPerStepEnum  end
 	if(name=="InversionMaxsteps") return InversionMaxstepsEnum  end
+	if(name=="InversionMelt0") return InversionMelt0Enum  end
 	if(name=="InversionNsteps") return InversionNstepsEnum  end
 	if(name=="InversionNumControlParameters") return InversionNumControlParametersEnum  end
 	if(name=="InversionNumCostFunctions") return InversionNumCostFunctionsEnum  end
+	if(name=="InversionRelaxationC") return InversionRelaxationCEnum  end
+	if(name=="InversionRelaxationMelt") return InversionRelaxationMeltEnum  end
 	if(name=="InversionStepThreshold") return InversionStepThresholdEnum  end
 	if(name=="InversionStopFlag") return InversionStopFlagEnum  end
+	if(name=="InversionTauC") return InversionTauCEnum  end
+	if(name=="InversionTauMelt") return InversionTauMeltEnum  end
 	if(name=="InversionType") return InversionTypeEnum  end
 	if(name=="IoConstant") return IoConstantEnum  end
 	if(name=="Ivins") return IvinsEnum  end
@@ -8664,6 +8713,12 @@ function StringToEnum(name::String)
 	if(name=="IceMaskNodeActivation") return IceMaskNodeActivationEnum  end
 	if(name=="Input") return InputEnum  end
 	if(name=="InversionCostFunctionsCoefficients") return InversionCostFunctionsCoefficientsEnum  end
+	if(name=="InversionMaxC") return InversionMaxCEnum  end
+	if(name=="InversionMinC") return InversionMinCEnum  end
+	if(name=="InversionMaxMelt") return InversionMaxMeltEnum  end
+	if(name=="InversionMinMelt") return InversionMinMeltEnum  end
+	if(name=="InversionMaxParameter") return InversionMaxParameterEnum  end
+	if(name=="InversionMinParameter") return InversionMinParameterEnum  end
 	if(name=="InversionSurfaceObs") return InversionSurfaceObsEnum  end
 	if(name=="InversionThicknessObs") return InversionThicknessObsEnum  end
 	if(name=="InversionVelObs") return InversionVelObsEnum  end
@@ -9036,6 +9091,7 @@ function StringToEnum(name::String)
 	if(name=="Thickness") return ThicknessEnum  end
 	if(name=="ThicknessOld") return ThicknessOldEnum  end
 	if(name=="ThicknessPositive") return ThicknessPositiveEnum  end
+	if(name=="ThicknessPreviousNudgingStep") return ThicknessPreviousNudgingStepEnum  end
 	if(name=="ThicknessResidual") return ThicknessResidualEnum  end
 	if(name=="TransientAccumulatedDeltaIceThickness") return TransientAccumulatedDeltaIceThicknessEnum  end
 	if(name=="Vel") return VelEnum  end
@@ -11193,6 +11249,7 @@ function StringToEnum(name::String)
 	if(name=="FloatingArea") return FloatingAreaEnum  end
 	if(name=="FloatingAreaScaled") return FloatingAreaScaledEnum  end
 	if(name=="FloatingMeltRate") return FloatingMeltRateEnum  end
+	if(name=="FluxDivergence") return FluxDivergenceEnum  end
 	if(name=="Free") return FreeEnum  end
 	if(name=="FreeSurfaceBaseAnalysis") return FreeSurfaceBaseAnalysisEnum  end
 	if(name=="FreeSurfaceTopAnalysis") return FreeSurfaceTopAnalysisEnum  end
