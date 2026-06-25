@@ -146,6 +146,42 @@ extern "C" {
     						}
     						/*}}}*/
     						break; 
+                        case VxEnum:
+    						/*{{{*/
+    						{
+                            // set ice velocity (x) restart provided by GEOS
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* vx_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               vx_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(VxEnum,vx_restart,P1Enum);
+                            xDelete<IssmDouble>(vx_restart);
+    						}
+    						/*}}}*/
+    						break; 
+                        case VyEnum:
+    						/*{{{*/
+    						{
+                            // set ice velocity (y) restart provided by GEOS
+                            numvertices = element->GetNumberOfVertices();
+    	                    IssmDouble* vy_restart  = xNew<IssmDouble>(numvertices);   
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                               lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                               vy_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
+                            } 
+    
+    						/*Add into the element :*/
+    						element->AddInput(VyEnum,vy_restart,P1Enum);
+                            xDelete<IssmDouble>(vy_restart);
+    						}
+    						/*}}}*/
+    						break; 
                         case ThicknessEnum:
     						/*{{{*/
     						{
@@ -408,8 +444,6 @@ extern "C" {
 	void FinalizeISSM(){ /*{{{*/
         // wrap up
         for (int i = 0; i < N; ++i) {
-            /*Output results: .outbin file for each model */
-			OutputResultsx(femmodels[i]);
 			delete femmodels[i];
 			femmodels[i]=NULL;
         }
