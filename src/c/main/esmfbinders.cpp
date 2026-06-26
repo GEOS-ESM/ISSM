@@ -94,6 +94,7 @@ extern "C" {
             // specify that ISSM will be getting SMB from a GCM
             femmodels[id]->parameters->SetParam(SMBgcmEnum, SmbEnum);
             femmodels[id]->Restart();
+			
         }
     
         /* Return (#elements, #nodes) across all models on each process */
@@ -104,6 +105,7 @@ extern "C" {
     void InputFromRestarts(IssmDouble* gcm_restarts){ /*{{{*/
 		/* Set inputs based on GEOS restarts. */
         int local_size_elements,local_size_vertices,shift_local_vertices,numvertices,f0,lid;
+		IssmDouble  rho_ice,g;
 
         // get index for surface elevation restart for convenience
 		for (int f = 0; f < ISSMOutputNumTerms; ++f) {
@@ -142,6 +144,7 @@ extern "C" {
     
     						/*Add into the element :*/
     						element->AddInput(SurfaceEnum,surface_restart,P1Enum);
+    						element->AddInput(SurfaceOldEnum,surface_restart,P1Enum);	
                             xDelete<IssmDouble>(surface_restart);
     						}
     						/*}}}*/
@@ -160,6 +163,8 @@ extern "C" {
     
     						/*Add into the element :*/
     						element->AddInput(VxEnum,vx_restart,P1Enum);
+    						element->AddInput(VxSurfaceEnum,vx_restart,P1Enum);
+    						element->AddInput(VxBaseEnum,vx_restart,P1Enum);
                             xDelete<IssmDouble>(vx_restart);
     						}
     						/*}}}*/
@@ -178,6 +183,8 @@ extern "C" {
     
     						/*Add into the element :*/
     						element->AddInput(VyEnum,vy_restart,P1Enum);
+    						element->AddInput(VySurfaceEnum,vy_restart,P1Enum);
+    						element->AddInput(VyBaseEnum,vy_restart,P1Enum);
                             xDelete<IssmDouble>(vy_restart);
     						}
     						/*}}}*/
@@ -190,20 +197,31 @@ extern "C" {
                             IssmDouble surface_restart_iv;
                             numvertices = element->GetNumberOfVertices();
     	                    IssmDouble* thickness_restart  = xNew<IssmDouble>(numvertices);
-    	                    IssmDouble* base_restart  = xNew<IssmDouble>(numvertices);   
+    	                    IssmDouble* base_restart  = xNew<IssmDouble>(numvertices);
+    	                    IssmDouble* pressure_restart  = xNew<IssmDouble>(numvertices);  
+
+	                        rho_ice =element->FindParam(MaterialsRhoIceEnum);
+	                        g=element->FindParam(ConstantsGEnum);	
+								
                             
                             for(int iv=0;iv<numvertices;iv++){
                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
                                surface_restart_iv = gcm_restarts[lid+f0*total_nodes];
                                thickness_restart[iv] = gcm_restarts[lid+f*total_nodes]; 
                                base_restart[iv] = surface_restart_iv-thickness_restart[iv]; 
+                               pressure_restart[iv] = rho_ice*g*thickness_restart[iv];	
                             } 
     
     						/*Add into the element :*/
     						element->AddInput(ThicknessEnum,thickness_restart,P1Enum);
+    						element->AddInput(ThicknessOldEnum,thickness_restart,P1Enum);	
     						element->AddInput(BaseEnum,base_restart,P1Enum);
+    						element->AddInput(BaseOldEnum,base_restart,P1Enum);
+    						element->AddInput(PressureEnum,pressure_restart,P1Enum);
+								
                             xDelete<IssmDouble>(thickness_restart);
-                            xDelete<IssmDouble>(base_restart);       
+                            xDelete<IssmDouble>(base_restart);
+                            xDelete<IssmDouble>(pressure_restart);       
     						}
     						/*}}}*/
     						break; 
@@ -301,10 +319,11 @@ extern "C" {
     
     		/*}}}*/
     
-    		/*Before running, set the time interval to one time step: */
+    	    /*Before running, set the time interval to one time step: */
     		femmodels[id]->parameters->FindParam(&start_time,TimeEnum);
     		final_time=start_time+dt;
     		femmodels[id]->parameters->SetParam(final_time,TimesteppingFinalTimeEnum);
+			femmodels[id]->parameters->SetParam(dt,TimesteppingTimeStepEnum);
     
     		/*Now, run: */
     		femmodels[id]->Solve();
