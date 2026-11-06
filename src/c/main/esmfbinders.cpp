@@ -11,8 +11,8 @@
 /*GEOS 5 specific declarations:*/
 const int GCMForcingNumTerms = 1;
 const int GCMForcingTerms[GCMForcingNumTerms]= { SMBgcmEnum}; 
-const int ISSMOutputNumTerms = 6;
-const int ISSMOutputTerms[ISSMOutputNumTerms]= {SurfaceEnum,ThicknessEnum,VxEnum,VyEnum,MaskOceanLevelsetEnum,MaskIceLevelsetEnum};
+const int ISSMOutputNumTerms = 7;
+const int ISSMOutputTerms[ISSMOutputNumTerms]= {SurfaceEnum,ThicknessEnum,VxEnum,VyEnum,MaskOceanLevelsetEnum,MaskIceLevelsetEnum,FluxDivergenceEnum};
 
 extern "C" {
 
@@ -441,6 +441,24 @@ extern "C" {
                                 icemask_input->GetInputValue(&icemask,gauss);
                                 lid = element->vertices[iv]->Lid()+shift_local_vertices; 
                                 issm_outputs[lid+f*total_nodes] = icemask;
+                            }     
+                            delete gauss;   
+    						}
+    						/*}}}*/
+    						break; 
+                    case FluxDivergenceEnum:
+    						/*{{{*/
+    						{
+                			IssmDouble fluxdiv;
+    						Input* fluxdiv_input = element->GetInput(FluxDivergenceEnum); _assert_(fluxdiv_input);
+                            Gauss* gauss=element->NewGauss();                        
+                            numvertices = element->GetNumberOfVertices();
+                            
+                            for(int iv=0;iv<numvertices;iv++){
+                                gauss->GaussVertex(iv);
+                                fluxdiv_input->GetInputValue(&fluxdiv,gauss);
+                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
+                                issm_outputs[lid+f*total_nodes] = fluxdiv;
                             }     
                             delete gauss;   
     						}
