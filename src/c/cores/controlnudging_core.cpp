@@ -20,7 +20,7 @@ void ComputeRMSEs(FemModel* femmodel, IssmDouble deltat, IssmDouble* pJ){/*{{{*/
 	IssmDouble S = 0.;
 	IssmDouble S_sum = 1.;
 
-	IssmDouble  weight,Jdet,H,Hobs,Hold;
+	IssmDouble  Jdet,H,Hobs,Hold;
 	IssmDouble  vx, vy, vxobs, vyobs;
 	IssmDouble* xyz_list = NULL;
 
@@ -74,6 +74,7 @@ void ComputeRMSEs(FemModel* femmodel, IssmDouble deltat, IssmDouble* pJ){/*{{{*/
 		/*clean up and Return: */
 		xDelete<IssmDouble>(xyz_list);
 		delete gauss;
+		if(element->IsSpawnedElement()){element->DeleteMaterials(); delete element;};
 	}
 
 	/*Sum all J from all cpus of the cluster:*/
@@ -93,7 +94,7 @@ void ComputeRMSEs(FemModel* femmodel, IssmDouble deltat, IssmDouble* pJ){/*{{{*/
 void controlnudging_core(FemModel* femmodel){
 
    /*Intermediaries*/
-	IssmDouble dCdt1, dCdt2, dCdt3, dHdt;
+	IssmDouble dCdt1, dCdt2, dCdt3;
 	IssmDouble dMeltdt1, dMeltdt2, dMeltdt3;
    IssmDouble time;
 	int        maxiter;
@@ -110,7 +111,6 @@ void controlnudging_core(FemModel* femmodel){
    IssmDouble H0_melt      = femmodel->parameters->FindParam(InversionH0MeltEnum);
    IssmDouble r_C          = femmodel->parameters->FindParam(InversionRelaxationCEnum);
    IssmDouble r_melt       = femmodel->parameters->FindParam(InversionRelaxationMeltEnum);
-   IssmDouble yts          = femmodel->parameters->FindParam(ConstantsYtsEnum);
    IssmDouble tmax         = femmodel->parameters->FindParam(TimesteppingFinalTimeEnum);
    IssmDouble tmin         = femmodel->parameters->FindParam(TimesteppingStartTimeEnum);
    IssmDouble deltat       = (tmax - tmin);
@@ -135,19 +135,21 @@ void controlnudging_core(FemModel* femmodel){
    /*Get Fields once and for all*/
    int numvertices = femmodel->vertices->NumberOfVertices();
 	GetVectorFromInputsx(&Melt, femmodel, BasalforcingsPerturbationMeltingRateEnum, VertexSIdEnum);
-   GetVectorFromInputsx(&Cinit, femmodel, FrictionCoefficientEnum, VertexSIdEnum);
-	GetVectorFromInputsx(&Cmin,femmodel, InversionMinCEnum, VertexSIdEnum);
-	GetVectorFromInputsx(&Cmax,femmodel, InversionMaxCEnum, VertexSIdEnum);
+	GetVectorFromInputsx(&C,    femmodel, FrictionCoefficientEnum, VertexSIdEnum);
+   GetVectorFromInputsx(&Cinit,femmodel, FrictionCoefficientEnum, VertexSIdEnum);
+	GetVectorFromInputsx(&Cmin, femmodel, InversionMinCEnum, VertexSIdEnum);
+	GetVectorFromInputsx(&Cmax, femmodel, InversionMaxCEnum, VertexSIdEnum);
 	GetVectorFromInputsx(&Meltmin,femmodel, InversionMinMeltEnum, VertexSIdEnum);
 	GetVectorFromInputsx(&Meltmax,femmodel, InversionMaxMeltEnum, VertexSIdEnum);
-   GetVectorFromInputsx(&H_obs, femmodel, ThicknessEnum, VertexSIdEnum);
+   GetVectorFromInputsx(&H_obs,  femmodel, ThicknessEnum, VertexSIdEnum);
 
 	/*NEW*/
 	InputDuplicatex(femmodel, ThicknessEnum, InversionThicknessObsEnum);
 
    femmodel->parameters->SetParam(true, DoNotSaveResultsEnum);
    for(int m=0;m<maxiter;m++){
-      _printf0_("\n=== NUDGING STEP "<< m+1 <<"/"<< maxiter << " ===\n");
+		int size = femmodel->Size();
+      _printf0_("\n=== NUDGING STEP "<< m+1 <<"/"<< maxiter << " === SIZE = "<<size<<"\n");
 
       /*Get ice thickness before we run a transient step*/
       GetVectorFromInputsx(&H_old, femmodel, ThicknessEnum, VertexSIdEnum);
@@ -162,9 +164,7 @@ void controlnudging_core(FemModel* femmodel){
       transient_core(femmodel);
 
       /*Extract results*/
-		xDelete<IssmDouble>(C);
       GetVectorFromInputsx(&H,   femmodel, ThicknessEnum, VertexSIdEnum);
-      GetVectorFromInputsx(&C,   femmodel, FrictionCoefficientEnum, VertexSIdEnum);
 		GetVectorFromInputsx(&V,   femmodel, VelEnum, VertexSIdEnum);
       GetVectorFromInputsx(&O_ls,femmodel, MaskOceanLevelsetEnum, VertexSIdEnum);
 
@@ -246,8 +246,8 @@ void controlnudging_core(FemModel* femmodel){
 
       xDelete<IssmDouble>(H_old);
       xDelete<IssmDouble>(H);
-      xDelete<IssmDouble>(O_ls);
 		xDelete<IssmDouble>(V);
+      xDelete<IssmDouble>(O_ls);
    }
 
 	/*Add C/melt/J to results*/

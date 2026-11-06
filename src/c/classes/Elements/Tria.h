@@ -73,8 +73,6 @@ class Tria: public Element,public ElementHook,public TriaRef{
 		void        ComputeStressTensor();
 		void        ComputeSurfaceNormalVelocity();
 		void        Configure(Elements* elements,Loads* loads,Nodes* nodesin,Vertices* verticesin,Materials* materials,Parameters* parameters,Inputs* inputsin);
-		void        ControlInputSetGradient(IssmDouble* gradient,int enum_type,int control_index,int offset,int M,int N,int interp);
-		void        ControlToVectors(Vector<IssmPDouble>* vector_control, Vector<IssmPDouble>* vector_gradient,int control_enum,int control_interp);
 		void        CreateDistanceInputFromSegmentlist(IssmDouble* distances,int distanceenum);
 		void        ElementCoordinates(Vector<IssmDouble>* vxe,Vector<IssmDouble>* vye,Vector<IssmDouble>* vze, Vector<IssmDouble>* vareae, bool spherical=false);
 		void        ElementCoordinates(Vector<IssmDouble>* vlonge,Vector<IssmDouble>* vlate,Vector<IssmDouble>* vareae);
@@ -157,7 +155,7 @@ class Tria: public Element,public ElementHook,public TriaRef{
 		IssmDouble  TotalCalvingMeltingFluxLevelset(bool scaled);
 		IssmDouble  TotalFloatingBmb(bool scaled);
 		IssmDouble  TotalGroundedBmb(bool scaled);
-		IssmDouble  TotalHydrologyBasalFlux(bool scaled);
+		IssmDouble  TotalHydrologyGroundinglineDischarge(bool scaled);
 		IssmDouble  TotalSmb(bool scaled);
 		IssmDouble  TotalSmbMelt(bool scaled);
 		IssmDouble  TotalSmbRefreeze(bool scaled);
@@ -181,6 +179,7 @@ class Tria: public Element,public ElementHook,public TriaRef{
 		void       SealevelchangeGeometrySubElementKernel(SealevelGeometry* slgeom);
 		void       SealevelchangeGeometrySubElementLoads(SealevelGeometry* slgeom, IssmDouble* areae);
 		void       SealevelchangeGeometryCentroidLoads(SealevelGeometry* slgeom, IssmDouble* xxe, IssmDouble* yye, IssmDouble* zze, IssmDouble* areae);
+		void       SealevelchangeInitializeOldIceState(void);
 		void       SealevelchangeBarystaticLoads(GrdLoads* loads, BarystaticContributions* barycontrib, SealevelGeometry* slgeom);
 		void       SealevelchangeConvolution(IssmDouble* sealevelpercpu, GrdLoads* loads, IssmDouble* rotationvector,SealevelGeometry* slgeom);
 		void       SealevelchangeOceanAverage(GrdLoads* loads, Vector<IssmDouble>* oceanareas, Vector<IssmDouble>* subelementoceanareas, IssmDouble* sealevelpercpu, SealevelGeometry* slgeom);

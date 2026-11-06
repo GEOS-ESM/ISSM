@@ -93,7 +93,6 @@ issm_sources += \
 	./classes/Node.cpp \
 	./classes/Vertex.cpp \
 	./classes/Hook.cpp \
-	./classes/Radar.cpp \
 	./classes/BarystaticContributions.cpp \
 	./classes/ExternalResults/Results.cpp \
 	./classes/Elements/Element.cpp \
@@ -289,7 +288,6 @@ issm_sources += \
 	./cores/bmb_core.cpp \
 	./cores/debris_core.cpp \
 	./solutionsequences/solutionsequence_thermal_nonlinear.cpp \
-	./modules/ControlInputSetGradientx/ControlInputSetGradientx.cpp \
 	./modules/GetVectorFromControlInputsx/GetVectorFromControlInputsx.cpp \
 	./modules/SetControlInputsFromVectorx/SetControlInputsFromVectorx.cpp \
 	./modules/ModelProcessorx/Control/CreateParametersControl.cpp \
@@ -322,6 +320,7 @@ issm_sources += \
 	./cores/hydrology_core.cpp \
 	./solutionsequences/solutionsequence_hydro_nonlinear.cpp \
 	./solutionsequences/solutionsequence_shakti_nonlinear.cpp \
+	./solutionsequences/solutionsequence_imlglads_nonlinear.cpp \
 	./solutionsequences/solutionsequence_glads_nonlinear.cpp \
 	./cores/stressbalance_core.cpp \
 	./solutionsequences/solutionsequence_stokescoupling_nonlinear.cpp \
@@ -488,6 +487,9 @@ endif
 if HYDROLOGYGLADS
 issm_sources += ./analyses/HydrologyGlaDSAnalysis.cpp
 endif
+if HYDROLOGYIMLGLADS
+issm_sources += ./analyses/HydrologyIMLGlaDSAnalysis.cpp
+endif
 if HYDROLOGYDCINEFFICIENT
 issm_sources += ./analyses/HydrologyDCInefficientAnalysis.cpp
 endif
@@ -542,6 +544,7 @@ if LEVELSET
 issm_sources += ./analyses/LevelsetAnalysis.cpp
 issm_sources += ./modules/Calvingx/Calvingx.cpp
 issm_sources += ./modules/KillIcebergsx/KillIcebergsx.cpp
+issm_sources += ./modules/MapOceanConnectivityx/MapOceanConnectivityx.cpp
 endif
 if EXTRAPOLATION
 issm_sources += ./analyses/ExtrapolationAnalysis.cpp
@@ -593,6 +596,11 @@ endif
 if PyBind11
 issm_sources += ./classes/Params/EmulatorParam.cpp
 issm_sources += ./modules/StressBalanceEmulatorx/StressBalanceEmulatorx.cpp
+endif
+#}}}
+# GPU_HO{{{
+if GPU_HO
+issm_sources += ./classes/Params/GPUHOParam.cpp
 endif
 #}}}
 # Sampling sources {{{
@@ -754,6 +762,10 @@ endif
 endif
 
 AM_LDFLAGS =
+
+if MSYS2
+AM_LDFLAGS += -no-undefined -Wl,--allow-multiple-definition
+endif
 
 if !VERSION
 AM_LDFLAGS += -avoid-version

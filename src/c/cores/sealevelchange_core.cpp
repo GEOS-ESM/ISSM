@@ -21,6 +21,8 @@
 /*support routines local definitions:{{{*/
 void TransferForcing(FemModel* femmodel,int forcingenum);
 void TransferSealevel(FemModel* femmodel,int forcingenum);
+void SealevelchangeInitializeOldIceState(FemModel* femmodel);
+void SealevelchangeUpdateOldLoadState(FemModel* femmodel,bool force);
 bool slcconvergence(IssmDouble* RSLg,IssmDouble* RSLg_old,IssmDouble eps_rel,IssmDouble eps_abs, IssmDouble totaloceanarea,FemModel* femmodel);
 IssmDouble  SealevelloadsOceanAverage(GrdLoads* loads, Vector<IssmDouble>* oceanareas, Vector<IssmDouble>* subelementoceanareas, IssmDouble totaloceanarea);
 void PolarMotion(IssmDouble* m, FemModel* femmodel,GrdLoads* loads, SealevelGeometry* slgeom, bool computefuture);
@@ -64,6 +66,10 @@ void              sealevelchange_core(FemModel* femmodel){ /*{{{*/
 	/*Run steric core for sure:*/
 	dynstr_core(femmodel);
 
+	/*Advance the SLC old load state after the completed SLC solve, so old HAF
+	 * corresponds to the same sea-surface and bed state used by the next solve. */
+	SealevelchangeUpdateOldLoadState(femmodel,false);
+
 	/*Run coupler output transfer: */
 	coupleroutput_core(femmodel);
 
@@ -96,7 +102,6 @@ void              solidearthexternal_core(FemModel* femmodel){ /*{{{*/
 	Vector<IssmDouble> *geoid= NULL; 
 	Vector<IssmDouble> *geoid_rate= NULL; 
 	int horiz=0;
-	int modelid=-1;
 	int  isexternal=0;
 
 	/*parameters: */
@@ -204,10 +209,10 @@ void              couplerinput_core(FemModel* femmodel){  /*{{{*/
 	/*transer loads from basins to Earth for grd core computations. :*/
 	if(iscoupling){
 
-		/*transfer ice thickness change load from basins to earth: */
-		TransferForcing(femmodel,DeltaIceThicknessEnum);
-		TransferForcing(femmodel,DeltaBottomPressureEnum);
-		TransferForcing(femmodel,DeltaTwsEnum);
+		/*transfer current ice load state from basins to earth: */
+		TransferForcing(femmodel,ThicknessEnum);
+		TransferForcing(femmodel,BottomPressureEnum);
+		TransferForcing(femmodel,WatercolumnEnum);
 		TransferForcing(femmodel,MaskOceanLevelsetEnum);
 		TransferForcing(femmodel,MaskIceLevelsetEnum);
 
@@ -291,7 +296,7 @@ void              grd_core(FemModel* femmodel, SealevelGeometry* slgeom) { /*{{{
 	/*Verbose: */
 	if(VerboseSolution()) _printf0_("	  computing GRD patterns\n");
 
-	/*retrieve parameters:*/ 
+	/*retrieve parameters:*/
 	femmodel->parameters->FindParam(&scaleoceanarea,SolidearthSettingsOceanAreaScalingEnum);
 	barycontribparam = xDynamicCast<GenericParam<BarystaticContributions*>*>(femmodel->parameters->FindParamObject(BarystaticContributionsEnum));
 	barycontrib=barycontribparam->GetParameterValue();
@@ -317,12 +322,12 @@ void              grd_core(FemModel* femmodel, SealevelGeometry* slgeom) { /*{{{
 	/*buildup loads: */
 	for(Object* & object : femmodel->elements->objects){
 		Element* element = xDynamicCast<Element*>(object);
-		element->SealevelchangeBarystaticLoads(loads, barycontrib,slgeom); 
+		element->SealevelchangeBarystaticLoads(loads, barycontrib,slgeom);
 	}
 	barycontrib->Assemble();
 	barystatictotal=barycontrib->Total();
 
-	//broadcast loads 
+	//broadcast loads
 	loads->BroadcastLoads();
 
 	/*skip computation of sea level equation if requested, which means sea level loads should be zeroed */
@@ -344,7 +349,7 @@ void              grd_core(FemModel* femmodel, SealevelGeometry* slgeom) { /*{{{
 			}
 
 			/*convolve load and sealevel loads on oceans:*/
-			loads->Combineloads(nel,slgeom); //This combines loads and sealevelloads into a single vector 
+			loads->Combineloads(nel,slgeom); //This combines loads and sealevelloads into a single vector
 			for(Object* & object : femmodel->elements->objects){
 				Element* element = xDynamicCast<Element*>(object);
 				element->SealevelchangeConvolution(sealevelpercpu, loads, polarmotionvector,slgeom);
@@ -360,17 +365,17 @@ void              grd_core(FemModel* femmodel, SealevelGeometry* slgeom) { /*{{{
 
 			/*compute ocean areas:*/
 			if(!loads->sealevelloads){ //first time in the loop
-				oceanareas->Assemble(); 
+				oceanareas->Assemble();
 				subelementoceanareas->Assemble();
 				oceanareas->Sum(&totaloceanarea); _assert_(totaloceanarea>0.);
 				if(scaleoceanarea) totaloceanarea=3.619e+14; // use true ocean area, m^2
 			}
 
-			//Conserve ocean mass: 
+			//Conserve ocean mass:
 			oceanaverage=SealevelloadsOceanAverage(loads, oceanareas,subelementoceanareas, totaloceanarea);
 			ConserveOceanMass(femmodel,loads,barystatictotal/totaloceanarea -oceanaverage,slgeom);
 
-			//broadcast sea level loads 
+			//broadcast sea level loads
 			loads->BroadcastSealevelLoads();
 
 			if(!sal){
@@ -619,6 +624,10 @@ void              sealevelchange_initialgeometry(FemModel* femmodel) {  /*{{{*/
 	femmodel->parameters->FindParam(&grdmodel,GrdModelEnum);
 	nel=femmodel->elements->NumberOfElements();
 
+	/*Initialize the previous SLC ice-load state before transient stepping. In
+	 * coupled runs, this also transfers the initial basin ice snapshot to earth. */
+	SealevelchangeInitializeOldIceState(femmodel);
+
 	/*early return?:*/
 	if(grdmodel!=ElasticEnum) return;
 
@@ -626,7 +635,9 @@ void              sealevelchange_initialgeometry(FemModel* femmodel) {  /*{{{*/
 	if(VerboseSolution()) _printf0_("	  computing initial sea level geometrical kernels and weights.\n");
 
 	/*recover x,y,z and areas from elements: */
-	ElementCoordinatesx(&xxe,&yye,&zze,&areae,femmodel->elements);
+	/*Use spherical centroids for SLC geometry.  Tria keeps the existing
+	 *mesh3dsurface coordinates and constructs these from mesh2d lat/long.*/
+	ElementCoordinatesx(&xxe,&yye,&zze,&areae,femmodel->elements,true);
 
 	/*Compute element ids, used to speed up computations in convolution phase:{{{*/
 	lids=xNew<int>(femmodel->vertices->Size());
@@ -676,6 +687,71 @@ void              sealevelchange_initialgeometry(FemModel* femmodel) {  /*{{{*/
 	xDelete<int>(n_activevertices);
 
 	return;
+
+}/*}}}*/
+void              SealevelchangeInitializeOldIceState(FemModel* femmodel) {  /*{{{*/
+
+	int iscoupling;
+	int modelid=1;
+	int earthid=1;
+
+	femmodel->parameters->FindParam(&iscoupling,IsSlcCouplingEnum);
+	if(iscoupling){
+		femmodel->parameters->FindParam(&modelid,ModelIdEnum);
+		femmodel->parameters->FindParam(&earthid,EarthIdEnum);
+
+		/*Seed the earth/load mesh with the initial basin load state. Subsequent
+		 * SLC solves update these old-state inputs on earth only. */
+		TransferForcing(femmodel,ThicknessEnum);
+		TransferForcing(femmodel,WatercolumnEnum);
+		TransferForcing(femmodel,BottomPressureEnum);
+		TransferForcing(femmodel,MaskOceanLevelsetEnum);
+		TransferForcing(femmodel,MaskIceLevelsetEnum);
+	}
+
+	if(iscoupling && modelid!=earthid) return;
+
+	SealevelchangeUpdateOldLoadState(femmodel,true);
+
+}/*}}}*/
+void              SealevelchangeUpdateOldLoadState(FemModel* femmodel,bool force) {  /*{{{*/
+
+	int grd=0;
+	int grdmodel=0;
+	int iscoupling=0;
+	int modelid=1;
+	int earthid=1;
+	int count=1;
+	int frequency=1;
+
+	femmodel->parameters->FindParam(&grd,SolidearthSettingsGRDEnum);
+	femmodel->parameters->FindParam(&grdmodel,GrdModelEnum);
+	femmodel->parameters->FindParam(&count,SealevelchangeRunCountEnum);
+	femmodel->parameters->FindParam(&frequency,SolidearthSettingsRunFrequencyEnum);
+	femmodel->parameters->FindParam(&iscoupling,IsSlcCouplingEnum);
+
+	if(!force){
+		if(!grd) return;
+		if(grdmodel==IvinsEnum) return;
+		if(count!=frequency) return;
+	}
+
+	if(iscoupling){
+		femmodel->parameters->FindParam(&modelid,ModelIdEnum);
+		femmodel->parameters->FindParam(&earthid,EarthIdEnum);
+		if(modelid!=earthid) return;
+	}
+
+	InputDuplicatex(femmodel,ThicknessEnum,SealevelchangeOldThicknessEnum);
+	InputDuplicatex(femmodel,MaskOceanLevelsetEnum,SealevelchangeOldOceanLevelsetEnum);
+	InputDuplicatex(femmodel,MaskIceLevelsetEnum,SealevelchangeOldIceLevelsetEnum);
+	InputDuplicatex(femmodel,WatercolumnEnum,SealevelchangeOldWaterColumnEnum);
+	InputDuplicatex(femmodel,BottomPressureEnum,SealevelchangeOldBottomPressureEnum);
+
+	for(Object* & object : femmodel->elements->objects){
+		Element* element = xDynamicCast<Element*>(object);
+		element->SealevelchangeInitializeOldIceState();
+	}
 
 }/*}}}*/
 SealevelGeometry* sealevelchange_geometry(FemModel* femmodel) {  /*{{{*/
@@ -872,11 +948,15 @@ IssmDouble SealevelloadsOceanAverage(GrdLoads* loads, Vector<IssmDouble>* oceana
 
 	IssmDouble sealevelloadsaverage;	
 	IssmDouble subsealevelloadsaverage;	
+	IssmDouble oceanmigrationloadsaverage;
+	IssmDouble suboceanmigrationloadsaverage;
 
 	loads->vsealevelloads->Sum(&sealevelloadsaverage);
 	loads->vsubsealevelloads->Sum(&subsealevelloadsaverage);
+	loads->voceanmigrationloads->Sum(&oceanmigrationloadsaverage);
+	loads->vsuboceanmigrationloads->Sum(&suboceanmigrationloadsaverage);
 
-	return (sealevelloadsaverage+subsealevelloadsaverage)/totaloceanarea;
+	return (sealevelloadsaverage+subsealevelloadsaverage+oceanmigrationloadsaverage+suboceanmigrationloadsaverage)/totaloceanarea;
 } /*}}}*/
 void       PolarMotion(IssmDouble* polarmotionvector, FemModel* femmodel,GrdLoads* loads, SealevelGeometry* slgeom, bool computefuture){ /*{{{*/
 	//The purpose of this routine is to get the polar motion vector m=(m1, m2, m3) induced by the GrdLoads
@@ -900,8 +980,7 @@ void       PolarMotion(IssmDouble* polarmotionvector, FemModel* femmodel,GrdLoad
 	IssmDouble* viscoustimes=NULL;
 	IssmDouble* viscouspolarmotion=NULL;
 	int         viscousnumsteps;
-	int         viscousindex=0; 
-	int         dummy;
+	int         viscousindex=0;
 	IssmDouble  currenttime, final_time, lincoeff, timeacc;
 
 	/*early return?:*/
@@ -1021,10 +1100,10 @@ void       SealevelchangeUpdateViscousTimeSeries(FemModel* femmodel){ /*{{{*/
 
 	IssmDouble* viscouspolarmotion=NULL;
 	IssmDouble* viscoustimes=NULL;
+	int         M,N;
 	int         viscousnumsteps;
 	int         viscousindex=0; 
-	int         newindex=0; 
-	int         dummy;
+	int         newindex=0;
 	bool        viscous=false;
 	bool        rotation=false;
 	IssmDouble  currenttime;
@@ -1035,10 +1114,12 @@ void       SealevelchangeUpdateViscousTimeSeries(FemModel* femmodel){ /*{{{*/
 
 	if(viscous){
 		femmodel->parameters->FindParam(&viscousnumsteps,SealevelchangeViscousNumStepsEnum);
+		if(viscousnumsteps<2) _error_("viscosity needs at least 2 time steps to interpolate (got " << viscousnumsteps << ").");
 		femmodel->parameters->FindParam(&viscoustimes,NULL,SealevelchangeViscousTimesEnum);
 		femmodel->parameters->FindParam(&viscousindex,SealevelchangeViscousIndexEnum);
 		femmodel->parameters->FindParam(&currenttime,TimeEnum);
-		if (rotation) 	femmodel->parameters->FindParam(&viscouspolarmotion,NULL,NULL,SealevelchangeViscousPolarMotionEnum);
+		if(rotation) femmodel->parameters->FindParam(&viscouspolarmotion,&M,&N,SealevelchangeViscousPolarMotionEnum);
+		if(viscousindex<0 || viscousindex>=viscousnumsteps) _error_("SealevelchangeViscousIndex (" << viscousindex << ") is out of range [0," << viscousnumsteps-1 << "]");
 
 		if(currenttime<viscoustimes[viscousindex]){
 			_error_("current time (" << currenttime << ") is earlier than the current viscous stack time (" << viscoustimes[viscousindex] << "). Check timestepping.start_time, current model time, and SealevelchangeViscousIndex.");
@@ -1050,7 +1131,7 @@ void       SealevelchangeUpdateViscousTimeSeries(FemModel* femmodel){ /*{{{*/
 		newindex=viscousnumsteps-2;
 
 		for(int t=viscousindex;t<viscousnumsteps;t++){
-			if (viscoustimes[t]>currenttime){
+			if(viscoustimes[t]>currenttime){
 				newindex=t-1;
 				foundtime=true;
 				lincoeff=(currenttime-viscoustimes[newindex])/(viscoustimes[t]-viscoustimes[newindex]);
@@ -1059,10 +1140,13 @@ void       SealevelchangeUpdateViscousTimeSeries(FemModel* femmodel){ /*{{{*/
 			}
 		}
 
+		_assert_(newindex>=0 && newindex+1<viscousnumsteps);
+
 		if(rotation){
 			int index=0;
-			for (int i=0;i<3;i++){
-				index=i*viscousnumsteps+newindex;
+			for(int i=0;i<3;i++){
+				index = i*viscousnumsteps+newindex;
+				_assert_(index>=0 && index+1<M*N);
 				viscouspolarmotion[index+offset]=(1-lincoeff)*viscouspolarmotion[index]+lincoeff*viscouspolarmotion[index+1];
 			}
 			femmodel->parameters->SetParam(viscouspolarmotion,viscousnumsteps,3,SealevelchangeViscousPolarMotionEnum);
@@ -1251,13 +1335,13 @@ void TransferForcing(FemModel* femmodel,int forcingenum){ /*{{{*/
 
 		/*Plug into elements:*/
 		InputUpdateFromVectorx(femmodel,forcingglobal,forcingenum,VertexSIdEnum);
-	} 
+	}
 	/*}}}*/
 
 	/*Free resources:{{{*/
 	if(forcings){
 		for(int i=0;i<nummodels-1;i++){
-			IssmDouble* temp=forcings[i]; 
+			IssmDouble* temp=forcings[i];
 			if(temp)xDelete<IssmDouble>(temp);
 		}
 		xDelete<IssmDouble*>(forcings);

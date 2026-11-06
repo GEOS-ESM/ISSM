@@ -39,7 +39,6 @@
 #include "./Masscon.h"
 #include "./Massconaxpby.h"
 #include "./Regionaloutput.h"
-#include "./Radar.h"
 
 /*Constraints: */
 #include "./Constraints/Constraints.h"
@@ -119,6 +118,9 @@
 #include "./Params/DataSetParam.h"
 #ifdef _HAVE_PyBind11_
 #include "./Params/EmulatorParam.h"
+#endif
+#ifdef _HAVE_GPU_HO_
+#include "./Params/GPUHOParam.h"
 #endif
 
 /*matrix: */

@@ -37,6 +37,7 @@ void SealevelchangeAnalysis::UpdateElements(Elements* elements,Inputs* inputs,Io
 	/*Create inputs: */
 	iomodel->FetchDataToInput(inputs,elements,"md.mask.ocean_levelset",MaskOceanLevelsetEnum);
 	iomodel->FetchDataToInput(inputs,elements,"md.mask.ice_levelset",MaskIceLevelsetEnum);
+	iomodel->FetchDataToInput(inputs,elements,"md.geometry.thickness",ThicknessEnum);
 	iomodel->FetchDataToInput(inputs,elements,"md.geometry.bed",BedEnum);
 
 	iomodel->FetchDataToInput(inputs,elements,"md.solidearth.transfercount",CouplingTransferCountEnum);
@@ -71,6 +72,8 @@ void SealevelchangeAnalysis::UpdateElements(Elements* elements,Inputs* inputs,Io
     iomodel->FetchDataToInput(inputs,elements,"md.initialization.sealevel",SealevelEnum);
 
 	/*Initialize loads: no! this should be done by the corresponding mass transports!*/
+	iomodel->FetchDataToInput(inputs,elements,"md.initialization.watercolumn",WatercolumnEnum,0.);
+	iomodel->FetchDataToInput(inputs,elements,"md.initialization.bottompressure",BottomPressureEnum,0.);
 	iomodel->ConstantToInput(inputs,elements,0.,DeltaTwsEnum,P1Enum);
 	iomodel->ConstantToInput(inputs,elements,0.,DeltaIceThicknessEnum,P1Enum);
 	iomodel->ConstantToInput(inputs,elements,0.,DeltaBottomPressureEnum,P1Enum);
@@ -78,7 +81,6 @@ void SealevelchangeAnalysis::UpdateElements(Elements* elements,Inputs* inputs,Io
 }/*}}}*/
 void SealevelchangeAnalysis::UpdateParameters(Parameters* parameters,IoModel* iomodel,int solution_enum,int analysis_enum){/*{{{*/
 
-	int         nl;
 	int         ntimesteps;
 	IssmDouble* love_h=NULL;
 	IssmDouble* love_k=NULL;
@@ -126,7 +128,6 @@ void SealevelchangeAnalysis::UpdateParameters(Parameters* parameters,IoModel* io
 	int         ndeg;
 	int         horiz;
 
-	bool istime=true;
 	IssmDouble start_time,final_time;
 	int  nt,precomputednt;
 	int i, j, k, n, viscoussampling;
@@ -400,13 +401,13 @@ void SealevelchangeAnalysis::UpdateParameters(Parameters* parameters,IoModel* io
 		constant=3/rho_earth/planetarea;
 		if(selfattraction){
 			for(int i=lower_row;i<upper_row;i++){
-				IssmDouble alpha,x;
+				IssmDouble alpha;
 				alpha= reCast<IssmDouble>(i)*degacc * M_PI / 180.0;
 				G_gravi_local[i-lower_row]= constant*.5/sin(alpha/2.0);
 			}
 			if(viscous | elastic){
 				for(int i=lower_row;i<upper_row;i++){
-					IssmDouble alpha,x;
+					IssmDouble alpha;
 					alpha= reCast<IssmDouble>(i)*degacc * M_PI / 180.0;
 
 					for(int t=0;t<ntimesteps;t++){

@@ -48,7 +48,7 @@ void hydrology_core(FemModel* femmodel){ /*{{{*/
 
 	}
 	/*Using the Tws based Model*/
-	if (hydrology_model==HydrologyTwsEnum){
+	else if (hydrology_model==HydrologyTwsEnum){
 		if(VerboseSolution()) _printf0_("   computing water column\n");
 
 		femmodel->SetCurrentConfiguration(HydrologyTwsAnalysisEnum);
@@ -59,7 +59,7 @@ void hydrology_core(FemModel* femmodel){ /*{{{*/
 		/*grab tws from the hydrology.spcwatercolumn field input and update
 		 * the solution with it:*/
 		Vector<IssmDouble>*  ug  = NULL;
-		GetVectorFromInputsx(&ug,femmodel,HydrologyTwsSpcEnum,VertexPIdEnum);
+		GetSolutionFromInputsx(&ug,femmodel);
 		InputUpdateFromSolutionx(femmodel,ug);
 
 		/*solid earth considerations:*/
@@ -243,6 +243,31 @@ void hydrology_core(FemModel* femmodel){ /*{{{*/
 
 		/*Solve for new potential*/
 		solutionsequence_glads_nonlinear(femmodel);
+
+		if(VerboseSolution()) _printf0_("   updating effective pressure\n");
+		analysis->UpdateEffectivePressure(femmodel);
+		delete analysis;
+	}
+
+	/*Using the IML-GlaDS model*/
+	else if (hydrology_model==HydrologyIMLGlaDSEnum){
+		HydrologyIMLGlaDSAnalysis* analysis = new HydrologyIMLGlaDSAnalysis();
+		femmodel->SetCurrentConfiguration(HydrologyIMLGlaDSAnalysisEnum);
+
+		bool islakes;
+		femmodel->parameters->FindParam(&islakes,HydrologyLakeFlagEnum);
+
+		/*Set fields as old*/
+		InputDuplicatex(femmodel,HydraulicPotentialEnum,HydraulicPotentialOldEnum);
+		InputDuplicatex(femmodel,HydrologySheetThicknessEnum,HydrologySheetThicknessOldEnum);
+		if(islakes){
+			InputDuplicatex(femmodel,HydrologyLakeHeightEnum,HydrologyLakeHeightOldEnum);
+			InputDuplicatex(femmodel,HydrologyLakeChannelQrEnum,HydrologyLakeChannelQrOldEnum);
+		}
+		analysis->SetChannelCrossSectionOld(femmodel);
+		
+		/*Solve for new potential*/
+		solutionsequence_imlglads_nonlinear(femmodel);
 
 		if(VerboseSolution()) _printf0_("   updating effective pressure\n");
 		analysis->UpdateEffectivePressure(femmodel);

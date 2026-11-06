@@ -242,6 +242,11 @@ void FieldAndEnumFromCode(int* out_enum,char** pfield,const char* string_in){/*{
 		input_enum        = BedEnum;
 		fieldname=xNew<char>((strlen(field)+1)); xMemCpy<char>(fieldname,field,(strlen(field)+1));
 	}
+	else if(strcmp(string_in,"HydrologyMoulinInput")==0){
+		const char* field = "md.hydrology.moulin_input";
+		input_enum        = HydrologyMoulinInputEnum;
+		fieldname=xNew<char>((strlen(field)+1)); xMemCpy<char>(fieldname,field,(strlen(field)+1));
+	}
 	else{
 		_error_("Field \""<<string_in<<"\" not supported yet");
 	}
@@ -301,7 +306,8 @@ int IoCodeToEnumCalving(int enum_in){/*{{{*/
 		case 9:  return CalvingParameterizationEnum;
 		case 10: return CalvingPollardEnum;
 		case 11: return CalvingVonmisesADEnum;
-		case 12:  return CalvingCalvingMIPEnum;
+		case 12: return CalvingCalvingMIPEnum;
+		case 13: return CalvingStochasticEnum;
 		default: _error_("Marshalled Calving law code \""<<enum_in<<"\" not supported yet");
 	}
 }/*}}}*/
@@ -322,6 +328,7 @@ int IoCodeToEnumHydrology(int enum_in){/*{{{*/
 		case 5: return HydrologyGlaDSEnum;
 		case 6: return HydrologyTwsEnum;
 		case 7: return HydrologyarmapwEnum;
+		case 8: return HydrologyIMLGlaDSEnum;
 		case 10: return HydrologyprescribeEnum;
 		default: _error_("Marshalled hydrology code \""<<enum_in<<"\" not supported yet");
 	}

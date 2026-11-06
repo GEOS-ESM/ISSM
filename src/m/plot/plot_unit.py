@@ -37,11 +37,17 @@ def plot_unit(x, y, z, elements, data, is2d, isplanet, datatype, options, fig, a
     alpha = options.getfieldvalue('alpha', 1)
     # }}}
     # define wich colormap to use {{{
-    try:
-        defaultmap = plt.cm.get_cmap('viridis', colorlevels)
-    except AttributeError:
-        print("Viridis can't be found (probably too old Matplotlib) reverting to gnuplot colormap")
-        defaultmap = truncate_colormap('gnuplot2', 0.1, 0.9, colorlevels)
+    if mpl.__version__ < "3.11":
+        try:
+            defaultmap = plt.cm.get_cmap('viridis', colorlevels)
+        except AttributeError:
+            print("Viridis can't be found (probably too old Matplotlib) reverting to gnuplot colormap")
+            defaultmap = truncate_colormap('gnuplot2', 0.1, 0.9, colorlevels)
+    elif mpl.__version__ >= "3.11":
+        # NOTE: As of Matplotlib 3.11, "get_cmap" is no longer supported.
+        # Reference: https://matplotlib.org/stable/api/prev_api_changes/api_changes_3.11.0.html#matplotlib-cm-get-cmap
+        defaultmap = mpl.colormaps['viridis'].resampled(colorlevels)
+
     if not options.exist('colormap'):
         cmap = defaultmap
     else:
@@ -49,13 +55,13 @@ def plot_unit(x, y, z, elements, data, is2d, isplanet, datatype, options, fig, a
     options.addfield('colormap', cmap)
     # }}}
     # if plotting only one of several layers reduce dataset, same for surface {{{
-    if options.getfieldvalue('layer', 0) >= 1:
-        plotlayer = options.getfieldvalue('layer', 0)
-        if datatype == 1:
-            slicesize = np.shape(elements)[0]
-        elif datatype in [2, 3]:
-            slicesize = len(x)
-        data = data[(plotlayer - 1) * slicesize:plotlayer * slicesize]
+    # if options.getfieldvalue('layer', 0) >= 1:
+    #     plotlayer = options.getfieldvalue('layer', 0)
+    #     if datatype == 1:
+    #         slicesize = np.shape(elements)[0]
+    #     elif datatype in [2, 3]:
+    #         slicesize = len(x)
+    #     data = data[(plotlayer - 1) * slicesize:plotlayer * slicesize]
     # }}}
     # Get the colormap limits {{{
     dataspread = np.nanmax(data) - np.nanmin(data)

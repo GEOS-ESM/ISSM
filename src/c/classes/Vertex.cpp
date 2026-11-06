@@ -19,7 +19,7 @@ Vertex::Vertex(){/*{{{*/
 	return;
 }
 /*}}}*/
-Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel,bool isamr){/*{{{*/
+Vertex::Vertex(int vertex_id, int vertex_sid, bool vertex_clone, IoModel* iomodel,bool isamr){/*{{{*/
 
 	/*Checks in debugging mode*/
 	_assert_(vertex_sid>=0 && vertex_sid<iomodel->numberofvertices);
@@ -60,6 +60,15 @@ Vertex::Vertex(int vertex_id, int vertex_sid,bool vertex_clone, IoModel* iomodel
 				this->R            = iomodel->Data("md.mesh.r")[vertex_sid];
 				break;
 			case Domain2DhorizontalEnum:
+				/*Regional elastic GRD on a 2D mesh uses the projected x/y
+				 *coordinates for ice physics, but spherical lat/long for SLC.
+				 *The radius is therefore supplied by the planet rather than by
+				 *mesh.r (which does not exist on mesh2d).*/
+				if(iomodel->Data("md.mesh.lat") && iomodel->Data("md.mesh.long")){
+					IssmDouble planetradius;
+					iomodel->FindConstant(&planetradius,"md.solidearth.planetradius");
+					this->R=planetradius;
+				}
 				this->sigma = 0.;
 				break;
 			case Domain2DverticalEnum:
