@@ -467,7 +467,7 @@ def _instantiate_subclass(md, gname: str, ct: str, verbose: bool):  # {{{
         else:
             warnings.warn(f'basalforcings class ''{ct}'' not supported yet.')
         # }}}
-    elif gname == 'caving': # {{{
+    elif gname == 'calving': # {{{
         known = [
                 'calving',
                 #'calvingmip', # TODO: calvingmip is not implemented in python

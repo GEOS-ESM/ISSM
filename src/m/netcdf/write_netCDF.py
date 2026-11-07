@@ -39,7 +39,7 @@ def write_netCDF(md, filename: str, verbose: bool = False) -> None:
 
     # check file format
     if not filename.endswith('.nc'):
-		warnings.warn('Warning: The given file name does not end with ".nc". Appending the extension automatically.')
+        warnings.warn('Warning: The given file name does not end with ".nc". Appending the extension automatically.')
         filename = filename + '.nc'
 
     # Overwrite silently
