@@ -328,153 +328,248 @@ extern "C" {
     		/*Now, run: */
     		femmodels[id]->Solve();
     
-    		/*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
-    		for (int f=0;f<ISSMOutputNumTerms;f++){
-    
-    			int output_type=ISSMOutputTerms[f];
-    
-    			for (int i=0;i<local_size_elements;i++){
-    				Element* element=dynamic_cast<Element*>(femmodels[id]->elements->GetObjectByOffset(i));
+            /*Retrieve ISSM outputs and pass them back to the GCM : {{{*/
+            for (int f = 0; f < ISSMOutputNumTerms; ++f) {
 
-    				switch(output_type){
-    					case SurfaceEnum:
-    						/*{{{*/
-    						{
-    						IssmDouble surface;
-    						Input* surface_input = element->GetInput(SurfaceEnum); _assert_(surface_input);
-                            Gauss* gauss=element->NewGauss();                        
+                int output_type = ISSMOutputTerms[f];
+
+                /*
+                * Only FluxDivergence needs accumulation: its element-side values
+                * can differ at a shared vertex. Create these before the element
+                * loop, accumulate inside it, and average/write after it.
+                */
+                Vector<IssmDouble>* fluxdiv_sum = NULL;
+                Vector<IssmDouble>* fluxdiv_count = NULL;
+
+                if (output_type == FluxDivergenceEnum) {
+                    int global_num_vertices = femmodels[id]->vertices->NumberOfVertices();
+
+                    fluxdiv_sum = new Vector<IssmDouble>(global_num_vertices);
+                    fluxdiv_count = new Vector<IssmDouble>(global_num_vertices);
+                }
+
+                /*
+                * Keep the existing single element loop and switch for all output
+                * fields. Flux divergence accumulates here instead of writing
+                * directly to issm_outputs, which would let adjacent elements
+                * overwrite one another's value at a shared vertex.
+                */
+                for (int i = 0; i < local_size_elements; ++i) {
+
+                    Element* element = xDynamicCast<Element*>(
+                        femmodels[id]->elements->GetObjectByOffset(i));
+
+                    switch (output_type) {
+
+                        case SurfaceEnum: {
+                            IssmDouble surface;
+                            Input* surface_input =
+                                element->GetInput(SurfaceEnum);
+                            _assert_(surface_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                surface_input->GetInputValue(&surface,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = surface;
-                            }       
+                                surface_input->GetInputValue(&surface, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = surface;
+                            }
+
                             delete gauss;
-    						}
-    						/*}}}*/
-    						break; 
-    				case ThicknessEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble thickness;
-    						Input* thickness_input = element->GetInput(ThicknessEnum); _assert_(thickness_input);
-                            Gauss* gauss=element->NewGauss();                        
+                            break;
+                        }
+
+                        case ThicknessEnum: {
+                            IssmDouble thickness;
+                            Input* thickness_input =
+                                element->GetInput(ThicknessEnum);
+                            _assert_(thickness_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                thickness_input->GetInputValue(&thickness,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = thickness;
-                            }     
-                            delete gauss; 
-    						}
-    						/*}}}*/
-    						break; 
-    
-    				case VxEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble vx;
-    						Input* vx_input = element->GetInput(VxEnum); _assert_(vx_input);
-                            Gauss* gauss=element->NewGauss();                        
+                                thickness_input->GetInputValue(&thickness, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = thickness;
+                            }
+
+                            delete gauss;
+                            break;
+                        }
+
+                        case VxEnum: {
+                            IssmDouble vx;
+                            Input* vx_input = element->GetInput(VxEnum);
+                            _assert_(vx_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                vx_input->GetInputValue(&vx,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = vx;
-                            }     
-                            delete gauss;   
-    						}
-    						/*}}}*/
-    						break; 
-                    case VyEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble vy;
-    						Input* vy_input = element->GetInput(VyEnum); _assert_(vy_input);
-                            Gauss* gauss=element->NewGauss();                        
+                                vx_input->GetInputValue(&vx, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = vx;
+                            }
+
+                            delete gauss;
+                            break;
+                        }
+
+                        case VyEnum: {
+                            IssmDouble vy;
+                            Input* vy_input = element->GetInput(VyEnum);
+                            _assert_(vy_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                vy_input->GetInputValue(&vy,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = vy;
-                            }     
-                            delete gauss;   
-    						}
-    						/*}}}*/
-    						break; 
-                    case MaskOceanLevelsetEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble oceanmask;
-    						Input* oceanmask_input = element->GetInput(MaskOceanLevelsetEnum); _assert_(oceanmask_input);
-                            Gauss* gauss=element->NewGauss();                        
+                                vy_input->GetInputValue(&vy, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = vy;
+                            }
+
+                            delete gauss;
+                            break;
+                        }
+
+                        case MaskOceanLevelsetEnum: {
+                            IssmDouble oceanmask;
+                            Input* oceanmask_input =
+                                element->GetInput(MaskOceanLevelsetEnum);
+                            _assert_(oceanmask_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                oceanmask_input->GetInputValue(&oceanmask,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = oceanmask;
-                            }     
-                            delete gauss;   
-    						}
-    						/*}}}*/
-    						break; 
-                    case MaskIceLevelsetEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble icemask;
-    						Input* icemask_input = element->GetInput(MaskIceLevelsetEnum); _assert_(icemask_input);
-                            Gauss* gauss=element->NewGauss();                        
+                                oceanmask_input->GetInputValue(&oceanmask, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = oceanmask;
+                            }
+
+                            delete gauss;
+                            break;
+                        }
+
+                        case MaskIceLevelsetEnum: {
+                            IssmDouble icemask;
+                            Input* icemask_input =
+                                element->GetInput(MaskIceLevelsetEnum);
+                            _assert_(icemask_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                icemask_input->GetInputValue(&icemask,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = icemask;
-                            }     
-                            delete gauss;   
-    						}
-    						/*}}}*/
-    						break; 
-                    case FluxDivergenceEnum:
-    						/*{{{*/
-    						{
-                			IssmDouble fluxdiv;
-    						Input* fluxdiv_input = element->GetInput(FluxDivergenceEnum); _assert_(fluxdiv_input);
-                            Gauss* gauss=element->NewGauss();                        
+                                icemask_input->GetInputValue(&icemask, gauss);
+
+                                lid = element->vertices[iv]->Lid()
+                                    + shift_local_vertices;
+                                issm_outputs[lid + f*total_nodes] = icemask;
+                            }
+
+                            delete gauss;
+                            break;
+                        }
+
+                        case FluxDivergenceEnum: {
+                            IssmDouble H, vx, vy, fluxdiv;
+                            IssmDouble dH[2], dvx[2], dvy[2];
+                            IssmDouble* xyz_list = NULL;
+
+                            Input* H_input = element->GetInput(ThicknessEnum);
+                            _assert_(H_input);
+                            Input* vx_input = element->GetInput(VxEnum);
+                            _assert_(vx_input);
+                            Input* vy_input = element->GetInput(VyEnum);
+                            _assert_(vy_input);
+
+                            Gauss* gauss = element->NewGauss();
                             numvertices = element->GetNumberOfVertices();
-                            
-                            for(int iv=0;iv<numvertices;iv++){
+                            element->GetVerticesCoordinates(&xyz_list);
+
+                            for (int iv = 0; iv < numvertices; ++iv) {
                                 gauss->GaussVertex(iv);
-                                fluxdiv_input->GetInputValue(&fluxdiv,gauss);
-                                lid = element->vertices[iv]->Lid()+shift_local_vertices; 
-                                issm_outputs[lid+f*total_nodes] = fluxdiv;
-                            }     
-                            delete gauss;   
-    						}
-    						/*}}}*/
-    						break; 
-    				default: 
-    					{ _error_("Unknown output type " << output_type << "\n"); }
-    					break;
-    				}
-    			}
-    		}
-    		/*For the next time around, save the final time as start time */
-    		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
-    
-            // shift starting index for next model inputs/outputs
-            shift_local_vertices += local_size_vertices;
+
+                                H_input->GetInputValue(&H, gauss);
+                                H_input->GetInputDerivativeValue(
+                                    &dH[0], xyz_list, gauss);
+
+                                vx_input->GetInputValue(&vx, gauss);
+                                vy_input->GetInputValue(&vy, gauss);
+                                vx_input->GetInputDerivativeValue(
+                                    &dvx[0], xyz_list, gauss);
+                                vy_input->GetInputDerivativeValue(
+                                    &dvy[0], xyz_list, gauss);
+
+                                fluxdiv =vx*dH[0] + vy*dH[1] + H*(dvx[0] + dvy[1]);
+
+                                // Accumulate this element's contribution by global vertex ID.
+                                int sid = element->vertices[iv]->Sid();
+                                fluxdiv_sum->SetValue(sid, fluxdiv, ADD_VAL);
+                                fluxdiv_count->SetValue(sid, 1., ADD_VAL);
+                            }
+
+                            delete gauss;
+                            xDelete<IssmDouble>(xyz_list);
+                            break;
+                        }
+
+                        default:
+                            _error_("Unknown output type " << output_type << "\n");
+                            break;
+                    }
+            }
+
+            /*
+             * The element loop is now done. Assemble all element-side values
+             * for each vertex, average them, and write exactly once per local
+             * vertex using the required external indexing.
+             */
+            if (output_type == FluxDivergenceEnum) {
+                fluxdiv_sum->Assemble();
+                fluxdiv_count->Assemble();
+
+                IssmDouble* sums = fluxdiv_sum->ToMPISerial();
+                IssmDouble* counts = fluxdiv_count->ToMPISerial();
+
+                for (int i = 0; i < local_size_vertices; ++i) {
+                    Vertex* vertex = xDynamicCast<Vertex*>(
+                        femmodels[id]->vertices->GetObjectByOffset(i));
+
+                    int sid = vertex->Sid();
+                    lid = vertex->Lid() + shift_local_vertices;
+
+                    if (counts[sid] > 0.) {
+                        issm_outputs[lid + f*total_nodes] =
+                            sums[sid] / counts[sid];
+                    }
+                }
+
+                xDelete<IssmDouble>(sums);
+                xDelete<IssmDouble>(counts);
+                delete fluxdiv_sum;
+                delete fluxdiv_count;
+            }
         }
 	} /*}}}*/
 
