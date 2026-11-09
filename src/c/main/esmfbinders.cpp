@@ -570,6 +570,7 @@ extern "C" {
                 delete fluxdiv_sum;
                 delete fluxdiv_count;
             }
+        } /* end for f over ISSMOutputTerms */
         }
 	} /*}}}*/
 
