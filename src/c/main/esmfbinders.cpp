@@ -570,7 +570,13 @@ extern "C" {
                 delete fluxdiv_sum;
                 delete fluxdiv_count;
             }
-        } /* end for f over ISSMOutputTerms */
+            } /* end for f over ISSMOutputTerms */
+            
+            /*For the next time around, save the final time as start time */
+    		femmodels[id]->parameters->SetParam(final_time,TimesteppingStartTimeEnum);
+    
+            // shift starting index for next model inputs/outputs
+            shift_local_vertices += local_size_vertices;
         }
 	} /*}}}*/
 
