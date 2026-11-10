@@ -3565,6 +3565,7 @@ syn keyword cConstant Domain3DsurfaceEnum
 syn keyword cConstant DoubleArrayInputEnum
 syn keyword cConstant ArrayInputEnum
 syn keyword cConstant IntArrayInputEnum
+syn keyword cConstant Int16ArrayInputEnum
 syn keyword cConstant DoubleExternalResultEnum
 syn keyword cConstant DoubleMatArrayParamEnum
 syn keyword cConstant DoubleMatExternalResultEnum
@@ -3807,6 +3808,7 @@ syn keyword cConstant SMBpddGCMEnum
 syn keyword cConstant SMBpddFastEnum
 syn keyword cConstant SMBsemicEnum
 syn keyword cConstant SMBmariaEnum
+syn keyword cConstant SMBunetEnum
 syn keyword cConstant SSAApproximationEnum
 syn keyword cConstant SSAFSApproximationEnum
 syn keyword cConstant SSAHOApproximationEnum

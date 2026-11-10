@@ -3567,6 +3567,7 @@ const char* EnumToStringx(int en){
 		case DoubleArrayInputEnum : return "DoubleArrayInput";
 		case ArrayInputEnum : return "ArrayInput";
 		case IntArrayInputEnum : return "IntArrayInput";
+		case Int16ArrayInputEnum : return "Int16ArrayInput";
 		case DoubleExternalResultEnum : return "DoubleExternalResult";
 		case DoubleMatArrayParamEnum : return "DoubleMatArrayParam";
 		case DoubleMatExternalResultEnum : return "DoubleMatExternalResult";
@@ -3809,6 +3810,7 @@ const char* EnumToStringx(int en){
 		case SMBpddFastEnum : return "SMBpddFast";
 		case SMBsemicEnum : return "SMBsemic";
 		case SMBmariaEnum : return "SMBmaria";
+		case SMBunetEnum : return "SMBunet";
 		case SSAApproximationEnum : return "SSAApproximation";
 		case SSAFSApproximationEnum : return "SSAFSApproximation";
 		case SSAHOApproximationEnum : return "SSAHOApproximation";
